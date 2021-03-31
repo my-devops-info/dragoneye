@@ -1,6 +1,6 @@
 from abc import abstractmethod
 
-from collect_requests.collect_request import CollectRequest
+from dragoneye.collect_requests.collect_request import CollectRequest
 
 
 class BaseCollect:

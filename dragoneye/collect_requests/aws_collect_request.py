@@ -1,6 +1,6 @@
 from typing import List
 
-from collect_requests.collect_request import CloudProvider, CollectRequest
+from dragoneye.collect_requests.collect_request import CollectRequest, CloudProvider
 
 
 class AwsCollectRequest(CollectRequest):

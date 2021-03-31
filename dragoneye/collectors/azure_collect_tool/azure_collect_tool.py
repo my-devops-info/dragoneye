@@ -7,9 +7,10 @@ import json
 
 from requests import Response
 
-from collect_requests.azure_collect_request import AzureCollectRequest
-from collectors.base_collect_tool.base_collect_tool import BaseCollect
-from utils.misc_utils import elapsed_time, invoke_get_request, init_directory, get_commands, get_dynamic_values_from_files, custom_serializer
+from dragoneye.collect_requests.azure_collect_request import AzureCollectRequest
+from dragoneye.collectors.base_collect_tool.base_collect_tool import BaseCollect
+from dragoneye.utils.misc_utils import elapsed_time, invoke_get_request, init_directory, get_commands, get_dynamic_values_from_files, \
+    custom_serializer
 
 
 class AzureCollectTool(BaseCollect):

@@ -93,7 +93,7 @@ def get_dynamic_values_from_files(value: str, directory: str):
 
 
 def custom_serializer(obj):
-    if isinstance(obj, datetime.datetime):
+    if isinstance(obj, datetime):
         return obj.isoformat()
     elif isinstance(obj, bytes):
         return obj.decode()

@@ -1,10 +1,10 @@
 import argparse
 
-from collect_requests.aws_collect_request import AwsCollectRequest
-from collect_requests.azure_collect_request import AzureCollectRequest
-from collect_requests.collect_request import CollectRequest
-from collectors.aws_collect_tool.aws_collect import AwsCollectTool
-from collectors.azure_collect_tool.azure_collect_tool import AzureCollectTool
+from dragoneye.collect_requests.aws_collect_request import AwsCollectRequest
+from dragoneye.collect_requests.azure_collect_request import AzureCollectRequest
+from dragoneye.collect_requests.collect_request import CollectRequest
+from dragoneye.collectors.aws_collect_tool.aws_collect import AwsCollectTool
+from dragoneye.collectors.azure_collect_tool.azure_collect_tool import AzureCollectTool
 
 
 def collect(collect_request: CollectRequest) -> str:

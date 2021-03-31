@@ -1,4 +1,4 @@
-from collect_requests.collect_request import CollectRequest, CloudProvider
+from dragoneye.collect_requests.collect_request import CollectRequest, CloudProvider
 
 
 class AzureCollectRequest(CollectRequest):

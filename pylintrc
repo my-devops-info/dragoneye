@@ -18,7 +18,7 @@ ignore=cloud_mapper
 
 # Python code to execute, usually for sys.path manipulation such as
 # pygtk.require().
-init-hook="import sys; sys.path.append(".")"
+init-hook="from pylint.config import find_pylintrc; sys.path.append(os.path.join(os.path.dirname(find_pylintrc()), 'dragoneye'));"
 
 # Use multiple processes to speed up Pylint. Specifying 0 will auto-detect the
 # number of processors available to use.

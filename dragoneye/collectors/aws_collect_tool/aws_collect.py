@@ -16,9 +16,10 @@ import urllib.parse
 from botocore.exceptions import ClientError, EndpointConnectionError, NoCredentialsError
 from botocore.config import Config
 
-from collect_requests.aws_collect_request import AwsCollectRequest, AwsDirectCollectRequest, AwsAssumeRoleCollectRequest
-from collectors.base_collect_tool.base_collect_tool import BaseCollect
-from utils.misc_utils import get_dynamic_values_from_files, custom_serializer, make_directory, init_directory, get_commands, snakecase, elapsed_time
+from dragoneye.collect_requests.aws_collect_request import AwsCollectRequest, AwsAssumeRoleCollectRequest, AwsDirectCollectRequest
+from dragoneye.collectors.base_collect_tool.base_collect_tool import BaseCollect
+from dragoneye.utils.misc_utils import get_dynamic_values_from_files, custom_serializer, make_directory, init_directory, get_commands, snakecase, \
+    elapsed_time
 
 MAX_RETRIES = 3
 
@@ -40,7 +41,7 @@ class AwsCollectTool(BaseCollect):
 
         summary = []
 
-        base_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), '../..')
+        base_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), '../../..')
         account_data_dir = init_directory(base_path, account_name, collect_request.clean)
 
         default_region = cls._get_default_region()
