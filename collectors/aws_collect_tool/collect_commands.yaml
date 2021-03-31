@@ -1,0 +1,462 @@
+
+- Service: iam
+  Request: get-account-authorization-details
+- Service: ec2
+  Request: describe-account-attributes
+- Service: ec2
+  Request: describe-vpcs
+- Service: ec2
+  Request: describe-vpc-attribute
+  Parameters:
+  - Name: Attribute
+    Value: enableDnsSupport
+  - Name: VpcId
+    Value: ec2-describe-vpcs.json|.Vpcs[].VpcId
+- Service: ec2
+  Request: describe-vpc-attribute
+  Parameters:
+  - Name: Attribute
+    Value: enableDnsHostnames
+  - Name: VpcId
+    Value: ec2-describe-vpcs.json|.Vpcs[].VpcId
+
+- Service: sts
+  Request: get-caller-identity
+- Service: ec2
+  Request: describe-vpc-endpoints
+- Service: ec2
+  Request: describe-subnets
+- Service: ec2
+  Request: describe-security-groups
+- Service: ec2
+  Request: describe-network-interfaces
+- Service: ec2
+  Request: describe-route-tables
+- Service: ec2
+  Request: describe-network-acls
+- Service: ec2
+  Request: describe-instances
+- Service: ec2
+  Request: describe-internet-gateways
+- Service: ec2
+  Request: describe-egress-only-internet-gateways
+- Service: ec2
+  Request: describe-prefix-lists
+- Service: ec2
+  Request: describe-nat-gateways
+- Service: autoscaling
+  Request: describe-auto-scaling-groups
+- Service: autoscaling
+  Request: describe-launch-configurations
+- Service: elb
+  Request: describe-load-balancers
+- Service: elb
+  Request: describe-load-balancer-policies
+- Service: elbv2
+  Request: describe-load-balancers
+- Service: elbv2
+  Request: describe-target-groups
+  Parameters:
+  - Name: LoadBalancerArn
+    Value: elbv2-describe-load-balancers.json|.LoadBalancers[].LoadBalancerArn
+- Service: elbv2
+  Request: describe-target-health
+  Parameters:
+  - Name: TargetGroupArn
+    Value: elbv2-describe-target-groups/*|.TargetGroups[].TargetGroupArn
+- Service: elbv2
+  Request: describe-listeners
+  Parameters:
+  - Name: LoadBalancerArn
+    Value: elbv2-describe-load-balancers.json|.LoadBalancers[].LoadBalancerArn
+- Service: ec2
+  Request: describe-vpc-peering-connections
+- Service: ec2
+  Request: describe-transit-gateways
+- Service: ec2
+  Request: describe-transit-gateway-route-tables
+- Service: ec2
+  Request: describe-transit-gateway-vpc-attachments
+- Service: ec2
+  Request: get-transit-gateway-route-table-associations
+  Parameters:
+    - Name: TransitGatewayRouteTableId
+      Value: ec2-describe-transit-gateway-route-tables.json|.TransitGatewayRouteTables[]?|.TransitGatewayRouteTableId
+- Service: ec2
+  Request: search-transit-gateway-routes
+  Parameters:
+    - Name: TransitGatewayRouteTableId
+      Value: ec2-describe-transit-gateway-route-tables.json|.TransitGatewayRouteTables[]?|.TransitGatewayRouteTableId
+    - Name: Filters
+      Value:
+        - Name: state
+          Values:
+            - active
+- Service: s3
+  Request: list-buckets
+- Service: s3
+  Request: get-bucket-acl
+  Parameters:
+  - Name: Bucket
+    Value: s3-list-buckets.json|.Buckets[]?|.Name
+- Service: s3
+  Request: get-bucket-policy
+  Parameters:
+  - Name: Bucket
+    Value: s3-list-buckets.json|.Buckets[]?|.Name
+- Service: s3
+  Request: get-bucket-location
+  Parameters:
+  - Name: Bucket
+    Value: s3-list-buckets.json|.Buckets[]?|.Name
+- Service: s3
+  Request: get-bucket-versioning
+  Parameters:
+  - Name: Bucket
+    Value: s3-list-buckets.json|.Buckets[]?|.Name
+
+- Service: ecr
+  Request: describe-repositories
+- Service: ecr
+  Request: get-repository-policy
+  Parameters:
+    - Name: repositoryName
+      Value: ecr-describe-repositories.json|.repositories[]?|.repositoryName
+
+- Service: s3
+  Request: get-public-access-block
+  Parameters:
+    - Name: Bucket
+      Value: s3-list-buckets.json|.Buckets[]?|.Name
+
+- Service: sns
+  Request: list-topics
+- Service: sns
+  Request: get-topic-attributes
+  Parameters:
+    - Name: TopicArn
+      Value: sns-list-topics.json|.Topics[]|.TopicArn
+
+- Service: s3control
+  Request: list-access-points
+  Parameters:
+    - Name: AccountId
+      Value: sts-get-caller-identity.json|.Account
+- Service: s3control
+  Request: get-access-point-policy
+  Parameters:
+    - Name: Name
+      Value: s3control-list-access-points/*|.AccessPointList[]?|.Name
+    - Name: AccountId
+      Value: sts-get-caller-identity.json|.Account
+
+- Service: s3control
+  Request: get-public-access-block
+  Parameters:
+    - Name: AccountId
+      Value: sts-get-caller-identity.json|.Account
+
+- Service: s3
+  Request: get-bucket-encryption
+  Parameters:
+  - Name: Bucket
+    Value: s3-list-buckets.json|.Buckets[]?|.Name
+
+- Service: ecs
+  Request: list-clusters
+
+- Service: ecs
+  Request: describe-clusters
+  Parameters:
+  - Name: clusters
+    Value: ecs-list-clusters.json|.clusterArns?|[.]
+
+- Service: ecs
+  Request: list-services
+  Parameters:
+  - Name: cluster
+    Value: ecs-describe-clusters/*|.clusters[].clusterName
+
+- Service: ecs
+  Request: describe-services
+  Parameters:
+    - Name: cluster
+      Value: ecs-describe-clusters/*|.clusters[].clusterName
+    - Name: services
+      Value: ecs-list-services/*|.serviceArns[]
+      Group: true
+
+- Service: ecs
+  Request: list-task-definitions
+  Parameters:
+    - Name: status
+      Value: ACTIVE
+
+- Service: ecs
+  Request: describe-task-definition
+  Parameters:
+  - Name: taskDefinition
+    Value: ecs-list-task-definitions/status-ACTIVE.json|.taskDefinitionArns[]?|.
+
+- Service: events
+  Request: list-rules
+
+- Service: events
+  Request: list-targets-by-rule
+  Parameters:
+    - Name: Rule
+      Value: events-list-rules.json|.Rules[].Name
+      Type: single-val
+
+- Service: redshift
+  Request: describe-clusters
+- Service: redshift
+  Request: describe-cluster-subnet-groups
+
+- Service: rds
+  Request: describe-db-instances
+- Service: rds
+  Request: describe-db-clusters
+- Service: rds
+  Request: describe-db-subnet-groups
+- Service: rds
+  Request: describe-global-clusters
+
+- Service: neptune
+  Request: describe-db-clusters
+- Service: neptune
+  Request: describe-db-instances
+
+- Service: es
+  Request: list-domain-names
+- Service: es
+  Request: describe-elasticsearch-domains
+  Parameters:
+    - Name: DomainNames
+      Value: es-list-domain-names.json|.DomainNames[]?|[[.DomainName]]
+
+- Service: eks
+  Request: list-clusters
+- Service: eks
+  Request: describe-cluster
+  Parameters:
+    - Name: name
+      Value: eks-list-clusters.json|.clusters[]
+
+- Service: cloudfront
+  Request: list-distributions
+
+- Service: ec2
+  Request: describe-launch-templates
+- Service: ec2
+  Request: describe-launch-template-versions
+  Parameters:
+    - Name: LaunchTemplateId
+      Value: ec2-describe-launch-templates.json|.LaunchTemplates[]?|.LaunchTemplateId
+
+- Service: apigateway
+  Request: get-rest-apis
+- Service: apigateway
+  Request: get-domain-names
+- Service: apigateway
+  Request: get-stages
+  Parameters:
+    - Name: restApiId
+      Value: apigateway-get-rest-apis.json|.items[]?|.id
+- Service: apigateway
+  Request: get-base-path-mappings
+  Parameters:
+    - Name: domainName
+      Value: apigateway-get-domain-names.json|.items[]?|.domainName
+
+- Service: athena
+  Request: list-work-groups
+- Service: athena
+  Request: get-work-group
+  Parameters:
+    - Name: WorkGroup
+      Value: athena-list-work-groups.json|.WorkGroups[]?|.Name
+
+- Service: iam
+  Request: get-account-password-policy
+- Service: iam
+  Request: get-login-profile
+  Parameters:
+    - Name: UserName
+      Value: iam-get-account-authorization-details.json|.UserDetailList[]?|.UserName
+
+- Service: dynamodb
+  Request: list-tables
+- Service: dynamodb
+  Request: describe-table
+  Parameters:
+    - Name: TableName
+      Value: dynamodb-list-tables.json|.TableNames[]
+
+- Service: ec2
+  Request: describe-images
+  Parameters:
+    - Name: Filters
+      Value:
+        - Name: is-public
+          Values:
+            - 'false'
+
+- Service: dax
+  Request: describe-clusters
+
+- Service: docdb
+  Request: describe-db-clusters
+
+- Service: docdb
+  Request: describe-db-cluster-parameters
+  Parameters:
+    - Name: DBClusterParameterGroupName
+      Value: docdb-describe-db-clusters.json|.DBClusters[]?|.DBClusterParameterGroup
+
+- Service: cloudtrail
+  Request: describe-trails
+
+- Service: logs
+  Request: describe-log-groups
+- Service: logs
+  Request: describe-destinations
+
+- Service: codebuild
+  Request: list-projects
+- Service: codebuild
+  Request: batch-get-projects
+  Parameters:
+    - Name: names
+      Value: codebuild-list-projects.json|.projects[]|[[.]]
+- Service: codebuild
+  Request: list-report-groups
+- Service: codebuild
+  Request: batch-get-report-groups
+  Parameters:
+    - Name: reportGroupArns
+      Value: codebuild-list-report-groups.json|[.reportGroups]
+
+- Service: kms
+  Request: list-keys
+- Service: kms
+  Request: describe-key
+  Parameters:
+    - Name: KeyId
+      Value: kms-list-keys.json|.Keys[]|.KeyId
+- Service: kms
+  Request: get-key-policy
+  Parameters:
+  - Name: KeyId
+    Value: kms-list-keys.json|.Keys[]|.KeyId
+  - Name: PolicyName
+    Value: default
+
+- Service: sqs
+  Request: list-queues
+- Service: sqs
+  Request: get-queue-attributes
+  Parameters:
+    - Name: QueueUrl
+      Value: sqs-list-queues.json|.QueueUrls[]?|.
+    - Name: AttributeNames
+      Value: ['All']
+
+- Service: elasticache
+  Request: describe-replication-groups
+
+- Service: lambda
+  Request: list-functions
+
+- Service: lambda
+  Request: list-aliases
+  Parameters:
+    - Name: FunctionName
+      Value: lambda-list-functions.json|.Functions[]|.FunctionName
+
+- Service: lambda
+  Request: get-policy
+  Parameters:
+    - Name: FunctionName
+      Value: lambda-list-functions.json|.Functions[]|.FunctionName
+    - Name: Qualifier
+      Value: lambda-list-aliases/*{{FunctionName}}*|.Aliases[]|.Name
+
+- Service: lambda
+  Request: list-versions-by-function
+  Parameters:
+    - Name: FunctionName
+      Value: lambda-list-functions.json|.Functions[]|.FunctionName
+
+- Service: glacier
+  Request: list-vaults
+  Parameters:
+    - Name: accountId
+      Value: sts-get-caller-identity.json|.Account
+
+- Service: glacier
+  Request: get-vault-access-policy
+  Parameters:
+    - Name: accountId
+      Value: sts-get-caller-identity.json|.Account
+    - Name: vaultName
+      Value: glacier-list-vaults/*|.VaultList[]?|.VaultName
+
+- Service: efs
+  Request: describe-file-systems
+- Service: efs
+  Request: describe-file-system-policy
+  Parameters:
+    - Name: FileSystemId
+      Value: efs-describe-file-systems.json|.FileSystems[]?|.FileSystemId
+
+- Service: glue
+  Request: get-resource-policy
+- Service: glue
+  Request: get-databases
+- Service: glue
+  Request: get-crawlers
+- Service: glue
+  Request: get-tables
+  Parameters:
+    - Name: DatabaseName
+      Value: glue-get-databases.json|.DatabaseList[]?|.Name
+
+- Service: secretsmanager
+  Request: list-secrets
+- Service: secretsmanager
+  Request: get-resource-policy
+  Parameters:
+    - Name: SecretId
+      Value: secretsmanager-list-secrets.json|.SecretList[]?|.Name
+
+- Service: kinesis
+  Request: list-streams
+- Service: kinesis
+  Request: describe-stream
+  Parameters:
+    - Name: StreamName
+      Value: kinesis-list-streams.json|.StreamNames[]?|.
+
+- Service: xray
+  Request: get-encryption-config
+
+- Service: firehose
+  Request: list-delivery-streams
+- Service: firehose
+  Request: describe-delivery-stream
+  Parameters:
+    - Name: DeliveryStreamName
+      Value: firehose-list-delivery-streams.json|.DeliveryStreamNames[]?|.
+
+- Service: workspaces
+  Request: describe-workspaces
+
+- Service: kms
+  Request: list-aliases
+
+- Service: resourcegroupstaggingapi
+  Request: get-resources
+
+- Service: ssm
+  Request: describe-parameters
