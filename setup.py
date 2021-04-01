@@ -14,11 +14,5 @@ setup(
     install_requires=requirements,
     entry_points={
         'console_scripts': [f'{project_name}=dragoneye.cli:cli']
-    },
-    package_data={
-        project_name: [
-            'collectors/aws_collect_tool/collect_commands.yaml',
-            'collectors/azure_collect_tool/collect_commands.yaml'
-        ]
     }
 )

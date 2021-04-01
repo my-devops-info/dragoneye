@@ -14,3 +14,4 @@ class CollectRequest:
     account_name: str
     clean: bool
     output_path: str
+    commands_path: str

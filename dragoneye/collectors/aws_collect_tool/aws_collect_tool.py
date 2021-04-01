@@ -18,7 +18,7 @@ from botocore.config import Config
 
 from dragoneye.collect_requests.aws_collect_request import AwsCollectRequest, AwsAssumeRoleCollectRequest, AwsAccessKeyCollectRequest
 from dragoneye.collectors.base_collect_tool.base_collect_tool import BaseCollect
-from dragoneye.utils.misc_utils import get_dynamic_values_from_files, custom_serializer, make_directory, init_directory, get_commands, snakecase, \
+from dragoneye.utils.misc_utils import get_dynamic_values_from_files, custom_serializer, make_directory, init_directory, load_yaml, snakecase, \
     elapsed_time
 
 MAX_RETRIES = 3
@@ -82,7 +82,7 @@ class AwsCollectTool(BaseCollect):
             "organizations",
         ]
 
-        collect_commands = get_commands()
+        collect_commands = load_yaml(collect_request.commands_path)
 
         executor: ThreadPoolExecutor = ThreadPoolExecutor(max_workers=10)
         dependable_commands = [command for command in collect_commands if command.get("Parameters", False)]
@@ -624,6 +624,13 @@ class AwsCollectTool(BaseCollect):
             default=os.getcwd(),
             help='The path in which the collect results will be saved on. Defaults to current working directory.'
         )
+        parser.add_argument(
+            '--commands-path',
+            dest='commands_path',
+            required=True,
+            type=str,
+            help='The file path to the yaml file that contains all the commands to run'
+        )
 
     @staticmethod
     def _add_parser_arguments_for_access_key(parser):
@@ -693,6 +700,13 @@ class AwsCollectTool(BaseCollect):
             default=os.getcwd(),
             help='The path in which the collect results will be saved on. Defaults to current working directory.'
         )
+        parser.add_argument(
+            '--commands-path',
+            dest='commands_path',
+            required=True,
+            type=str,
+            help='The file path to the yaml file that contains all the commands to run'
+        )
 
     @staticmethod
     def convert_args_to_request(args):
@@ -707,7 +721,8 @@ class AwsCollectTool(BaseCollect):
                                                max_attempts=args.max_attempts,
                                                max_pool_connections=args.max_pool_connections,
                                                command_timeout=args.command_timeout,
-                                               output_path=args.output_path)
+                                               output_path=args.output_path,
+                                               commands_path=args.commands_path)
         else:
             return AwsAccessKeyCollectRequest(account_id=args.account_id,
                                               account_name=args.account_name,
@@ -718,4 +733,5 @@ class AwsCollectTool(BaseCollect):
                                               duration_session_time=args.duration_session_time,
                                               max_pool_connections=args.max_pool_connections,
                                               command_timeout=args.command_timeout,
-                                              output_path=args.output_path)
+                                              output_path=args.output_path,
+                                              commands_path=args.commands_path)

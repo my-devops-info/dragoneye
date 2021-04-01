@@ -1,5 +1,4 @@
 import glob
-import inspect
 import json
 import os
 from datetime import datetime
@@ -40,10 +39,8 @@ def init_directory(base_path: str, account_name: str, clean: bool) -> str:
     return os.path.abspath(account_data_dir)
 
 
-def get_commands() -> List[dict]:
-    dir_path = os.path.dirname(inspect.stack()[1].filename)
-    collect_commands_path = os.path.join(dir_path, "collect_commands.yaml")
-    with open(collect_commands_path, "r") as file:
+def load_yaml(file_path: str) -> List[dict]:
+    with open(file_path, "r") as file:
         return yaml.safe_load(file)
 
 

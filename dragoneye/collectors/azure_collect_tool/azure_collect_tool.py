@@ -9,7 +9,7 @@ from requests import Response
 
 from dragoneye.collect_requests.azure_collect_request import AzureCollectRequest
 from dragoneye.collectors.base_collect_tool.base_collect_tool import BaseCollect
-from dragoneye.utils.misc_utils import elapsed_time, invoke_get_request, init_directory, get_commands, get_dynamic_values_from_files, \
+from dragoneye.utils.misc_utils import elapsed_time, invoke_get_request, init_directory, load_yaml, get_dynamic_values_from_files, \
     custom_serializer
 
 
@@ -28,7 +28,7 @@ class AzureCollectTool(BaseCollect):
         }
 
         account_data_dir = init_directory(collect_request.output_path, account_name, collect_request.clean)
-        collect_commands = get_commands()
+        collect_commands = load_yaml(collect_request.commands_path)
         resource_groups = cls._get_resource_groups(headers, subscription_id, account_data_dir)
 
         dependable_commands = [command for command in collect_commands if command.get("Parameters", False)]
@@ -194,6 +194,13 @@ class AzureCollectTool(BaseCollect):
             default=os.getcwd(),
             help='The path in which the collect results will be saved on. Defaults to current working directory.'
         )
+        parser.add_argument(
+            '--commands-path',
+            dest='commands_path',
+            required=True,
+            type=str,
+            help='The file path to the yaml file that contains all the commands to run'
+        )
 
     @staticmethod
     def convert_args_to_request(args):
@@ -204,5 +211,6 @@ class AzureCollectTool(BaseCollect):
             client_id=args.client_id,
             client_secret=args.client_secret,
             clean=args.clean,
-            output_path=args.output_path
+            output_path=args.output_path,
+            commands_path=args.commands_path
         )
