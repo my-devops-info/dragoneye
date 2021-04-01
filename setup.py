@@ -1,16 +1,24 @@
-from setuptools import setup, find_namespace_packages
+from setuptools import setup, find_packages
 
 with open('requirements.txt') as requirements_file:
     requirements = requirements_file.read().splitlines()
 
+project_name = 'dragoneye'
+
 setup(
-    name='dragoneye',
+    name=project_name,
     version='0.0.1',
-    descriptioon='Multi-cloud data collect tool',
+    description='Multi-cloud data collect tool',
     author='Indeni',
-    packages=['collectors.azure_collect_tool'],
+    packages=find_packages(include=[project_name, f'{project_name}.*']),
     install_requires=requirements,
     entry_points={
-        'console_scripts': ['dragoneye=main:cli']
+        'console_scripts': [f'{project_name}=dragoneye.cli:cli']
+    },
+    package_data={
+        project_name: [
+            'collectors/aws_collect_tool/collect_commands.yaml',
+            'collectors/azure_collect_tool/collect_commands.yaml'
+        ]
     }
 )

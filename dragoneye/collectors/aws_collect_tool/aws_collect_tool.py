@@ -16,7 +16,7 @@ import urllib.parse
 from botocore.exceptions import ClientError, EndpointConnectionError, NoCredentialsError
 from botocore.config import Config
 
-from dragoneye.collect_requests.aws_collect_request import AwsCollectRequest, AwsAssumeRoleCollectRequest, AwsDirectCollectRequest
+from dragoneye.collect_requests.aws_collect_request import AwsCollectRequest, AwsAssumeRoleCollectRequest, AwsAccessKeyCollectRequest
 from dragoneye.collectors.base_collect_tool.base_collect_tool import BaseCollect
 from dragoneye.utils.misc_utils import get_dynamic_values_from_files, custom_serializer, make_directory, init_directory, get_commands, snakecase, \
     elapsed_time
@@ -41,8 +41,7 @@ class AwsCollectTool(BaseCollect):
 
         summary = []
 
-        base_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), '../../..')
-        account_data_dir = init_directory(base_path, account_name, collect_request.clean)
+        account_data_dir = init_directory(collect_request.output_path, account_name, collect_request.clean)
 
         default_region = cls._get_default_region()
 
@@ -379,14 +378,14 @@ class AwsCollectTool(BaseCollect):
     def _get_session(cls, arguments: AwsCollectRequest):
         if isinstance(arguments, AwsAssumeRoleCollectRequest):
             return cls._get_session_by_assume_role(arguments.account_id, arguments.role_name, arguments.external_id, arguments.duration_session_time)
-        elif isinstance(arguments, AwsDirectCollectRequest):
+        elif isinstance(arguments, AwsAccessKeyCollectRequest):
             return cls._get_session_by_access_key(arguments, cls._get_default_region())
         else:
             raise Exception(f'Unknown arguments type. Got: {type(arguments).__name__}, '
-                            f'expected: ({AwsAssumeRoleCollectRequest.__name__}, {AwsDirectCollectRequest.__name__})')
+                            f'expected: ({AwsAssumeRoleCollectRequest.__name__}, {AwsAccessKeyCollectRequest.__name__})')
 
     @classmethod
-    def _get_session_by_access_key(cls, arguments: AwsDirectCollectRequest, default_region):
+    def _get_session_by_access_key(cls, arguments: AwsAccessKeyCollectRequest, default_region):
         session_data = {"region_name": default_region}
 
         if arguments.profile_name:
@@ -537,13 +536,11 @@ class AwsCollectTool(BaseCollect):
     @staticmethod
     def _add_parser_arguments_for_assume_role(parser):
         parser.add_argument(
-            "--config", help="Config file name", default="config.json", type=str
-        )
-        parser.add_argument(
             "--account",
             help="Account to collect from",
             required=False,
             type=str,
+            default='default',
             dest="account_name",
         )
         parser.add_argument(
@@ -618,18 +615,23 @@ class AwsCollectTool(BaseCollect):
             default=True,
             help=argparse.SUPPRESS
         )
+        parser.add_argument(
+            '--output-path',
+            dest='output_path',
+            required=False,
+            type=str,
+            default=os.getcwd(),
+            help='The path in which the collect results will be saved on. Defaults to current working directory.'
+        )
 
     @staticmethod
     def _add_parser_arguments_for_access_key(parser):
-        parser.add_argument(
-            "--config", help="Config file name", default="config.json", type=str
-        )
-
         parser.add_argument(
             "--account",
             help="Account to collect from",
             required=False,
             type=str,
+            default='default',
             dest="account_name",
         )
         parser.add_argument(
@@ -682,27 +684,37 @@ class AwsCollectTool(BaseCollect):
             default=False,
             help=argparse.SUPPRESS
         )
+        parser.add_argument(
+            '--output-path',
+            dest='output_path',
+            required=False,
+            type=str,
+            default=os.getcwd(),
+            help='The path in which the collect results will be saved on. Defaults to current working directory.'
+        )
 
     @staticmethod
     def convert_args_to_request(args):
         if args.assume_role:
-            return AwsAssumeRoleCollectRequest(args.account_id,
-                                               args.account_name,
-                                               args.external_id,
-                                               args.role_name,
-                                               args.clean,
-                                               args.regions_filter,
-                                               args.duration_session_time,
-                                               args.max_attempts,
-                                               args.max_pool_connections,
-                                               args.command_timeout)
+            return AwsAssumeRoleCollectRequest(account_id=args.account_id,
+                                               account_name=args.account_name,
+                                               external_id=args.external_id,
+                                               role_name=args.role_name,
+                                               clean=args.clean,
+                                               regions_filter=args.regions_filter,
+                                               duration_session_time=args.duration_session_time,
+                                               max_attempts=args.max_attempts,
+                                               max_pool_connections=args.max_pool_connections,
+                                               command_timeout=args.command_timeout,
+                                               output_path=args.output_path)
         else:
-            return AwsDirectCollectRequest(args.account_id,
-                                           args.account_name,
-                                           args.profile_name,
-                                           args.max_attempts,
-                                           args.clean,
-                                           args.regions_filter,
-                                           args.duration_session_time,
-                                           args.max_pool_connections,
-                                           args.command_timeout)
+            return AwsAccessKeyCollectRequest(account_id=args.account_id,
+                                              account_name=args.account_name,
+                                              profile_name=args.profile_name,
+                                              max_attempts=args.max_attempts,
+                                              clean=args.clean,
+                                              regions_filter=args.regions_filter,
+                                              duration_session_time=args.duration_session_time,
+                                              max_pool_connections=args.max_pool_connections,
+                                              command_timeout=args.command_timeout,
+                                              output_path=args.output_path)

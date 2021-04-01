@@ -13,3 +13,4 @@ class CollectRequest:
     cloud_provider: CloudProvider
     account_name: str
     clean: bool
+    output_path: str

@@ -27,8 +27,7 @@ class AzureCollectTool(BaseCollect):
             'Authorization': cls._get_authorization_token(tenant_id, client_id, client_secret)
         }
 
-        base_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), '../../..')
-        account_data_dir = init_directory(base_path, account_name, collect_request.clean)
+        account_data_dir = init_directory(collect_request.output_path, account_name, collect_request.clean)
         collect_commands = get_commands()
         resource_groups = cls._get_resource_groups(headers, subscription_id, account_data_dir)
 
@@ -151,6 +150,7 @@ class AzureCollectTool(BaseCollect):
             help="Account to collect from",
             required=False,
             type=str,
+            default='default',
             dest="account_name",
         )
         parser.add_argument(
@@ -186,7 +186,23 @@ class AzureCollectTool(BaseCollect):
             type=str,
             dest="client_secret"
         )
+        parser.add_argument(
+            '--output-path',
+            dest='output_path',
+            required=False,
+            type=str,
+            default=os.getcwd(),
+            help='The path in which the collect results will be saved on. Defaults to current working directory.'
+        )
 
     @staticmethod
     def convert_args_to_request(args):
-        pass
+        return AzureCollectRequest(
+            tenant_id=args.tenant_id,
+            account_name=args.account_name,
+            subscription_id=args.subscription_id,
+            client_id=args.client_id,
+            client_secret=args.client_secret,
+            clean=args.clean,
+            output_path=args.output_path
+        )
