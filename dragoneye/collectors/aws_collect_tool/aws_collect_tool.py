@@ -409,7 +409,8 @@ class AwsCollectTool(BaseCollect):
         credentials = response['Credentials']
         session = boto3.Session(aws_access_key_id=credentials['AccessKeyId'],
                                 aws_secret_access_key=credentials['SecretAccessKey'],
-                                aws_session_token=credentials['SessionToken'])
+                                aws_session_token=credentials['SessionToken'],
+                                region_name=cls._get_default_region())
 
         cls._assert_session(session)
         return session
@@ -525,10 +526,10 @@ class AwsCollectTool(BaseCollect):
 
     @classmethod
     def add_parser_args(cls, parser):
-        sub = parser.add_subparsers()
+        sub = parser.add_subparsers(dest='authentication-technique', required=True)
 
-        collect_by_assume_role = sub.add_parser('assume-role')
-        collect_by_access_key = sub.add_parser('access-key')
+        collect_by_assume_role = sub.add_parser('assume-role', help='Collect data by assuming a role')
+        collect_by_access_key = sub.add_parser('access-key', help='Collect data using an access-key')
 
         cls._add_parser_arguments_for_assume_role(collect_by_assume_role)
         cls._add_parser_arguments_for_access_key(collect_by_access_key)
