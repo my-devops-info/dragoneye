@@ -6,9 +6,16 @@ dragoneye currently supports AWS (AssumeRole and AccessKey based collection) and
 # Setup
 Clone this git repository, navigate to the root directory where `setup.py` is located and run:
 ```
-python3 -m pip install .
+pip install .
 ```
 (note the period at the end of the command)
+
+We recommend doing this within a virtual environment, like so:
+```
+python3.9 -m venv ./venv
+. ./venv/bin/activate
+pip install .
+```
 
 # Usage
 
