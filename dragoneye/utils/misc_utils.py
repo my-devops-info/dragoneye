@@ -34,6 +34,7 @@ def init_directory(base_path: str, account_name: str, clean: bool) -> str:
     if clean and os.path.exists(account_data_dir):
         rmtree(account_data_dir)
 
+    make_directory(base_path)
     make_directory(f"{base_path}/account-data")
     make_directory(account_data_dir)
     return os.path.abspath(account_data_dir)

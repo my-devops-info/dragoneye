@@ -707,6 +707,14 @@ class AwsCollectTool(BaseCollect):
             type=str,
             help='The file path to the yaml file that contains all the commands to run'
         )
+        parser.add_argument(
+            "--duration-session-time",
+            help="the duration for the generated credential",
+            required=False,
+            type=int,
+            dest="duration_session_time",
+            default=3600
+        )
 
     @staticmethod
     def convert_args_to_request(args):
@@ -724,8 +732,7 @@ class AwsCollectTool(BaseCollect):
                                                output_path=args.output_path,
                                                commands_path=args.commands_path)
         else:
-            return AwsAccessKeyCollectRequest(account_id=args.account_id,
-                                              account_name=args.account_name,
+            return AwsAccessKeyCollectRequest(account_name=args.account_name,
                                               profile_name=args.profile_name,
                                               max_attempts=args.max_attempts,
                                               clean=args.clean,

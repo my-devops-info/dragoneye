@@ -6,7 +6,6 @@ from dragoneye.collect_requests.collect_request import CollectRequest, CloudProv
 
 class AwsCollectRequest(CollectRequest):
     def __init__(self,
-                 account_id: str,
                  account_name: str,
                  regions_filter: List[str],
                  max_attempts: int,
@@ -17,7 +16,6 @@ class AwsCollectRequest(CollectRequest):
                  clean: bool,
                  commands_path: str):
         super().__init__(CloudProvider.Aws, account_name, clean, output_path, commands_path)
-        self.account_id: str = account_id
         self.regions_filter: str = ','.join(regions_filter) if regions_filter else ''
         self.max_attempts: int = max_attempts
         self.duration_session_time: int = duration_session_time
@@ -39,15 +37,15 @@ class AwsAssumeRoleCollectRequest(AwsCollectRequest):
                  max_attempts: int = 10,
                  max_pool_connections: int = 50,
                  command_timeout: int = 600):
-        super().__init__(account_id, account_name, regions_filter, max_attempts,
+        super().__init__(account_name, regions_filter, max_attempts,
                          duration_session_time, max_pool_connections, command_timeout, output_path, clean, commands_path)
         self.external_id: str = external_id
         self.role_name: str = role_name
+        self.account_id: str = account_id
 
 
 class AwsAccessKeyCollectRequest(AwsCollectRequest):
     def __init__(self,
-                 account_id: str,
                  account_name: str,
                  commands_path: str,
                  profile_name: str = None,
@@ -58,6 +56,6 @@ class AwsAccessKeyCollectRequest(AwsCollectRequest):
                  duration_session_time: int = 600,
                  max_pool_connections: int = 50,
                  command_timeout: int = 600):
-        super().__init__(account_id, account_name, regions_filter, max_attempts,
+        super().__init__(account_name, regions_filter, max_attempts,
                          duration_session_time, max_pool_connections, command_timeout, output_path, clean, commands_path)
         self.profile_name: str = profile_name
