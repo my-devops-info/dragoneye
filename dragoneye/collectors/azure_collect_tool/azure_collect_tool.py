@@ -7,7 +7,7 @@ import json
 
 from requests import Response
 
-from dragoneye.collect_requests.azure_collect_request import AzureCollectRequest
+from dragoneye.collect_requests.azure_collect_request import AzureCollectRequest, AzureCredentials
 from dragoneye.collectors.base_collect_tool.base_collect_tool import BaseCollect
 from dragoneye.utils.misc_utils import elapsed_time, invoke_get_request, init_directory, load_yaml, get_dynamic_values_from_files, \
     custom_serializer
@@ -17,18 +17,20 @@ class AzureCollectTool(BaseCollect):
     @classmethod
     @elapsed_time
     def collect(cls, collect_request: AzureCollectRequest) -> str:
-        account_name = collect_request.account_name
-        tenant_id = collect_request.tenant_id
-        subscription_id = collect_request.subscription_id
-        client_id = collect_request.client_id
-        client_secret = collect_request.client_secret
+        settings = collect_request.collect_settings
+        credentials: AzureCredentials = collect_request.credentials
+        tenant_id = credentials.tenant_id
+        subscription_id = credentials.subscription_id
+        client_id = credentials.client_id
+        client_secret = credentials.client_secret
+        account_name = settings.account_name
 
         headers = {
             'Authorization': cls._get_authorization_token(tenant_id, client_id, client_secret)
         }
 
-        account_data_dir = init_directory(collect_request.output_path, account_name, collect_request.clean)
-        collect_commands = load_yaml(collect_request.commands_path)
+        account_data_dir = init_directory(settings.output_path, account_name, settings.clean)
+        collect_commands = load_yaml(settings.commands_path)
         resource_groups = cls._get_resource_groups(headers, subscription_id, account_data_dir)
 
         dependable_commands = [command for command in collect_commands if command.get("Parameters", False)]
@@ -47,7 +49,11 @@ class AzureCollectTool(BaseCollect):
     @classmethod
     def test_authentication(cls, collect_request: AzureCollectRequest) -> bool:
         try:
-            cls._get_authorization_token(collect_request.tenant_id, collect_request.client_id, collect_request.client_secret)
+            credentials: AzureCredentials = collect_request.credentials
+            tenant_id = credentials.tenant_id
+            client_id = credentials.client_id
+            client_secret = credentials.client_secret
+            cls._get_authorization_token(tenant_id, client_id, client_secret)
             return True
         except Exception:
             return False

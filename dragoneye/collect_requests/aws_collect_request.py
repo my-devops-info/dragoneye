@@ -1,26 +1,37 @@
 import os
 from typing import List
 
-from dragoneye.collect_requests.collect_request import CollectRequest, CloudProvider
-
+from dragoneye.collect_requests.collect_request import CollectRequest, CloudProvider, CloudCredentials, CollectSettings
 
 class AwsCollectRequest(CollectRequest):
     def __init__(self,
-                 account_name: str,
-                 regions_filter: List[str],
-                 max_attempts: int,
-                 duration_session_time: int,
-                 max_pool_connections: int,
-                 command_timeout: int,
-                 output_path: str,
-                 clean: bool,
-                 commands_path: str):
+                 commands_path: str,
+                 account_name: str = 'default',
+                 regions_filter: List[str] = None,
+                 max_attempts: int = 10,
+                 duration_session_time: int = 3600,
+                 max_pool_connections: int = 50,
+                 command_timeout: int = 600,
+                 output_path: str = os.getcwd(),
+                 clean: bool = True):
         super().__init__(CloudProvider.Aws, account_name, clean, output_path, commands_path)
         self.regions_filter: str = ','.join(regions_filter) if regions_filter else ''
         self.max_attempts: int = max_attempts
         self.duration_session_time: int = duration_session_time
         self.max_pool_connections: int = max_pool_connections
         self.command_timeout: int = command_timeout
+
+    @staticmethod
+    def from_args(args):
+        return AwsCollectSettings(account_name=args.account_name,
+                                  clean=args.clean,
+                                  regions_filter=args.regions_filter,
+                                  duration_session_time=args.duration_session_time,
+                                  max_attempts=args.max_attempts,
+                                  max_pool_connections=args.max_pool_connections,
+                                  command_timeout=args.command_timeout,
+                                  output_path=args.output_path,
+                                  commands_path=args.commands_path)
 
 
 class AwsAssumeRoleCollectRequest(AwsCollectRequest):

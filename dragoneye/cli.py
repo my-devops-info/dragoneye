@@ -10,10 +10,6 @@ from dragoneye.collectors.azure_collect_tool.azure_collect_tool import AzureColl
 
 def cli():
     try:
-        usage_msg = 'dragoneye [provider] [options]\n' \
-                    'To see the help text, you can run:\n\n' \
-                    'dragoneye --help\n'
-        usage_msg = '# THE CUSTOM USAGE MESSAGE #'
         parser = argparse.ArgumentParser(description='A tool that collects data from the cloud')
         sub = parser.add_subparsers(dest='provider', required=True, help='Choose cloud provider')
 

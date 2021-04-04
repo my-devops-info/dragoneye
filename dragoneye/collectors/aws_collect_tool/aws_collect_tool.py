@@ -1,4 +1,3 @@
-import argparse
 import concurrent
 import copy
 import os.path
@@ -16,7 +15,7 @@ import urllib.parse
 from botocore.exceptions import ClientError, EndpointConnectionError, NoCredentialsError
 from botocore.config import Config
 
-from dragoneye.collect_requests.aws_collect_request import AwsCollectRequest, AwsAssumeRoleCollectRequest, AwsAccessKeyCollectRequest
+from dragoneye.collect_requests.aws_collect_request import AwsCollectRequest, AwsAssumeRoleCredentials, AwsAccessKeyCredentials
 from dragoneye.collectors.base_collect_tool.base_collect_tool import BaseCollect
 from dragoneye.utils.misc_utils import get_dynamic_values_from_files, custom_serializer, make_directory, init_directory, load_yaml, snakecase, \
     elapsed_time
@@ -37,19 +36,19 @@ class AwsCollectTool(BaseCollect):
     @elapsed_time
     def collect(cls, collect_request: AwsCollectRequest) -> str:
         logging.getLogger("botocore").setLevel(logging.WARN)
-        account_name = collect_request.account_name
+        account_name = collect_request.collect_settings.account_name
 
         summary = []
 
-        account_data_dir = init_directory(collect_request.output_path, account_name, collect_request.clean)
+        account_data_dir = init_directory(collect_request.collect_settings.output_path, account_name, collect_request.collect_settings.clean)
 
         default_region = cls._get_default_region()
 
         session = cls._get_session(collect_request)
 
         regions_filter = None
-        if len(collect_request.regions_filter) > 0:
-            regions_filter = collect_request.regions_filter.lower().split(",")
+        if len(collect_request.collect_settings.regions_filter) > 0:
+            regions_filter = collect_request.collect_settings.regions_filter.lower().split(",")
             # Force include of default region -- seems to be required
             if default_region not in regions_filter:
                 regions_filter.append(default_region)
@@ -82,7 +81,7 @@ class AwsCollectTool(BaseCollect):
             "organizations",
         ]
 
-        collect_commands = load_yaml(collect_request.commands_path)
+        collect_commands = load_yaml(collect_request.collect_settings.commands_path)
 
         executor: ThreadPoolExecutor = ThreadPoolExecutor(max_workers=10)
         dependable_commands = [command for command in collect_commands if command.get("Parameters", False)]
@@ -312,7 +311,8 @@ class AwsCollectTool(BaseCollect):
             return
         handler = session.client(
             runner["Service"], region_name=region["RegionName"],
-            config=Config(retries={'max_attempts': arguments.max_attempts, 'mode': 'standard'}, max_pool_connections=arguments.max_pool_connections)
+            config=Config(retries={'max_attempts': arguments.collect_settings.max_attempts, 'mode': 'standard'},
+                          max_pool_connections=arguments.collect_settings.max_pool_connections)
         )
 
         filepath = os.path.join(account_dir, region["RegionName"], f'{runner["Service"]}--{runner["Request"]}')
@@ -376,20 +376,20 @@ class AwsCollectTool(BaseCollect):
 
     @classmethod
     def _get_session(cls, arguments: AwsCollectRequest):
-        if isinstance(arguments, AwsAssumeRoleCollectRequest):
-            return cls._get_session_by_assume_role(arguments.account_id, arguments.role_name, arguments.external_id, arguments.duration_session_time)
-        elif isinstance(arguments, AwsAccessKeyCollectRequest):
-            return cls._get_session_by_access_key(arguments, cls._get_default_region())
+        if isinstance(arguments.credentials, AwsAssumeRoleCredentials):
+            return cls._get_session_by_assume_role(arguments.credentials, arguments.collect_settings.duration_session_time)
+        elif isinstance(arguments.credentials, AwsAccessKeyCredentials):
+            return cls._get_session_by_access_key(arguments.credentials, cls._get_default_region())
         else:
-            raise Exception(f'Unknown arguments type. Got: {type(arguments).__name__}, '
-                            f'expected: ({AwsAssumeRoleCollectRequest.__name__}, {AwsAccessKeyCollectRequest.__name__})')
+            raise Exception(f'Unknown credentials type. Got: {type(arguments.credentials).__name__}, '
+                            f'expected: ({AwsAssumeRoleCredentials.__name__}, {AwsAccessKeyCredentials.__name__})')
 
     @classmethod
-    def _get_session_by_access_key(cls, arguments: AwsAccessKeyCollectRequest, default_region):
+    def _get_session_by_access_key(cls, credentials: AwsAccessKeyCredentials, default_region):
         session_data = {"region_name": default_region}
 
-        if arguments.profile_name:
-            session_data["profile_name"] = arguments.profile_name
+        if credentials.profile_name:
+            session_data["profile_name"] = credentials.profile_name
 
         session = boto3.Session(**session_data)
         cls._assert_session(session)
@@ -397,7 +397,10 @@ class AwsCollectTool(BaseCollect):
         return session
 
     @classmethod
-    def _get_session_by_assume_role(cls, account_id, role_name, external_id, session_duration):
+    def _get_session_by_assume_role(cls, credentials: AwsAssumeRoleCredentials, session_duration: int):
+        account_id = credentials.account_id
+        role_name = credentials.role_name
+        external_id = credentials.external_id
         role_arn = "arn:aws:iam::" + account_id + ":role/" + role_name
         role_session_name = "cloudmapperSession"
         print('will try to assume role using ARN: {} and external id {} for account {}'.format(role_arn, external_id, account_id))
