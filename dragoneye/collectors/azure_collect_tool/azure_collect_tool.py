@@ -146,8 +146,11 @@ class AzureCollectTool(BaseCollect):
     def _add_resource_group(results: dict) -> None:
         for item in results['value']:
             item_id = item['id']
-            resource_group = item_id.split('resourceGroups/')[1].split('/')[0]
-            item['resourceGroup'] = resource_group
+            try:
+                resource_group = item_id.split('resourceGroups/')[1].split('/')[0]
+                item['resourceGroup'] = resource_group
+            except Exception:
+                pass
 
     @classmethod
     def add_parser_args(cls, parser):
