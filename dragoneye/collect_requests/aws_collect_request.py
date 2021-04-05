@@ -1,6 +1,6 @@
 import os
 from abc import abstractmethod
-from typing import List
+from typing import List, Optional
 
 from dragoneye.collect_requests.collect_request import CollectRequest, CloudProvider, CloudCredentials, CollectSettings
 
@@ -20,8 +20,8 @@ class AwsAssumeRoleCredentials(CloudCredentials):
 
 
 class AwsAccessKeyCredentials(CloudCredentials):
-    def __init__(self, profile_name: str = 'default'):
-        self.profile_name: str = profile_name
+    def __init__(self, profile_name: Optional[str] = None):
+        self.profile_name: Optional[str] = profile_name
 
     @staticmethod
     def from_args(args):

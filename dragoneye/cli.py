@@ -129,6 +129,7 @@ def _add_parser_arguments_for_access_key(parser):
         required=False,
         type=str,
         dest="profile_name",
+        default=None
     )
     parser.add_argument(
         "--clean",
