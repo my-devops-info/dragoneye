@@ -1,6 +1,5 @@
+from abc import abstractmethod
 from enum import Enum
-
-from dataclasses import dataclass
 
 
 class CloudProvider(str, Enum):
@@ -30,8 +29,11 @@ class CollectSettings:
 
 
 class CollectRequest:
-    cloud_provider: CloudProvider
-    account_name: str
-    clean: bool
-    output_path: str
-    commands_path: str
+    def __init__(self, credentials: CloudCredentials, collect_settings: CollectSettings):
+        self.credentials: CloudCredentials = credentials
+        self.collect_settings: CollectSettings = collect_settings
+
+    @staticmethod
+    @abstractmethod
+    def from_args(args):
+        pass

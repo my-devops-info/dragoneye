@@ -13,3 +13,9 @@
     - Name: vmName resourceGroupName
       Value: virtual-machines.json|.value[] | .name + " " + .resourceGroup
 
+- Request: https://management.azure.com/subscriptions/{subscriptionId}/providers/Microsoft.Network/virtualNetworks?api-version=2020-11-01
+  Name: virtual-machines3
+
+
+# GET https://management.azure.com/subscriptions/{subscriptionId}/providers/Microsoft.BatchAI/locations/{location}/usages?api-version=2018-05-01
+
