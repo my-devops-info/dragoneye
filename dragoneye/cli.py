@@ -10,8 +10,15 @@ from dragoneye.collectors.azure_collect_tool.azure_collect_tool import AzureColl
 
 def cli():
     try:
-        parser = argparse.ArgumentParser(description='A tool that collects data from the cloud')
-        sub = parser.add_subparsers(dest='provider', required=True, help='Choose cloud provider')
+        prog = 'dragoneye'
+        root_usage = '%(prog)s [provider] [options]\n\n' \
+                'Examples:\n\n' \
+                '%(prog)s azure [options]\n' \
+                '%(prog)s aws assume-role [options]\n' \
+                '%(prog)s aws access-key [options]\n'
+
+        parser = argparse.ArgumentParser(description='A tool that collects data from the cloud', usage=root_usage, prog=prog)
+        sub = parser.add_subparsers(dest='provider', required=True, help='Choose cloud provider', prog=prog)
 
         aws_collect = sub.add_parser('aws', help='Collect data from AWS')
         azure_collect = sub.add_parser('azure', help='Collect data from Azure')
