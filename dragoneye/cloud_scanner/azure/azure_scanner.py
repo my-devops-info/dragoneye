@@ -2,31 +2,39 @@ import os
 from concurrent.futures.thread import ThreadPoolExecutor
 from typing import List
 
-import requests
 import json
 
 from requests import Response
 
-from dragoneye.collect_requests.azure_collect_request import AzureCollectRequest, AzureCredentials
-from dragoneye.collectors.base_collect_tool.base_collect_tool import BaseCollect
+from dragoneye.cloud_scanner.azure.azure_authorizer import AzureAuthorizer
+from dragoneye.cloud_scanner.azure.azure_scan_request import AzureCredentials, AzureCloudScanSettings
+from dragoneye.cloud_scanner.base_cloud_scanner import BaseCloudScanner, CloudCredentials
 from dragoneye.utils.misc_utils import elapsed_time, invoke_get_request, init_directory, load_yaml, get_dynamic_values_from_files, \
     custom_serializer
 
 
-class AzureCollectTool(BaseCollect):
+class AzureScanner(BaseCloudScanner):
+
+    def test_connectivity(self, cloud_credentials: CloudCredentials):
+        azure_cloud_credentials: AzureCredentials = cloud_credentials
+        try:
+            AzureAuthorizer.get_authorization_token(azure_cloud_credentials.tenant_id,
+                                                    azure_cloud_credentials.client_id,
+                                                    azure_cloud_credentials.client_secret)
+            return True
+        except:
+            return False
+
+
     @classmethod
     @elapsed_time
-    def collect(cls, collect_request: AzureCollectRequest) -> str:
-        settings = collect_request.collect_settings
-        credentials: AzureCredentials = collect_request.credentials
-        tenant_id = credentials.tenant_id
-        subscription_id = credentials.subscription_id
-        client_id = credentials.client_id
-        client_secret = credentials.client_secret
+    def collect(cls, auth_header: str, collect_settings: AzureCloudScanSettings) -> str:
+        settings = collect_settings
+        subscription_id = collect_settings.subscription_id
         account_name = settings.account_name
 
         headers = {
-            'Authorization': cls._get_authorization_token(tenant_id, client_id, client_secret)
+            'Authorization': auth_header
         }
 
         account_data_dir = init_directory(settings.output_path, account_name, settings.clean)
@@ -47,18 +55,6 @@ class AzureCollectTool(BaseCollect):
         return os.path.abspath(os.path.join(account_data_dir, '..'))
 
     @classmethod
-    def test_authentication(cls, collect_request: AzureCollectRequest) -> bool:
-        try:
-            credentials: AzureCredentials = collect_request.credentials
-            tenant_id = credentials.tenant_id
-            client_id = credentials.client_id
-            client_secret = credentials.client_secret
-            cls._get_authorization_token(tenant_id, client_id, client_secret)
-            return True
-        except Exception:
-            return False
-
-    @classmethod
     def _execute_collect_commands(cls, collect_command: dict, subscription_id: str, headers: dict,
                                   account_data_dir: str, resource_groups: List[str]) -> None:
         request = collect_command['Request']
@@ -69,24 +65,6 @@ class AzureCollectTool(BaseCollect):
         results = cls._get_results(url, headers, parameters, account_data_dir, resource_groups)
         cls._save_result(account_data_dir, results, name)
 
-    @staticmethod
-    def _get_authorization_token(tenant_id: str, client_id: str, client_secret: str) -> str:
-        response = requests.post(
-            url=f'https://login.microsoftonline.com/{tenant_id}/oauth2/token',
-            data={
-                'grant_type': 'client_credentials',
-                'client_id': client_id,
-                'client_secret': client_secret,
-                'resource': 'https://management.azure.com/'
-            }
-        )
-
-        if response.status_code != 200:
-            raise Exception(f'Failed to authenticate. status code: {response.status_code}\nReason: {response.text}')
-
-        response_body = json.loads(response.text)
-        access_token = response_body['access_token']
-        return f'Bearer {access_token}'
 
     @classmethod
     def _save_result(cls, account_data_dir: str, result: dict, filename: str) -> None:

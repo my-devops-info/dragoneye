@@ -12,3 +12,5 @@ requests==2.22.0
 arnparse==0.0.2
 pyjwt==1.7.1
 packaging==20.4
+click==7.1.2
+click-aliases==1.0.1

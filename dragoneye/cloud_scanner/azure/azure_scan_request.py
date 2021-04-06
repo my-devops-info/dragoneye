@@ -1,6 +1,6 @@
 import os
 
-from dragoneye.collect_requests.collect_request import CollectRequest, CloudProvider, CloudCredentials, CollectSettings
+from dragoneye.cloud_scanner.base_cloud_scanner import CloudCredentials, CloudScanSettings, CloudProvider
 
 
 class AzureCredentials(CloudCredentials):
@@ -23,30 +23,17 @@ class AzureCredentials(CloudCredentials):
                                 client_secret=args.client_secret)
 
 
-class AzureCollectSettings(CollectSettings):
+class AzureCloudScanSettings(CloudScanSettings):
     def __init__(self,
                  commands_path: str,
-                 account_name: str = 'default',
+                 subscription_id: str,
+                 account_name: str,
                  output_path: str = os.getcwd(),
-                 clean: bool = True
+                 should_clean_before_collect: bool = True
                  ):
         super().__init__(cloud_provider=CloudProvider.Azure,
                          account_name=account_name,
-                         clean=clean,
+                         should_clean_before_collect=should_clean_before_collect,
                          output_path=output_path,
                          commands_path=commands_path)
-
-    @staticmethod
-    def from_args(args):
-        return AzureCollectSettings(account_name=args.account_name,
-                                    clean=args.clean,
-                                    output_path=args.output_path,
-                                    commands_path=args.commands_path)
-
-
-class AzureCollectRequest(CollectRequest):
-    @staticmethod
-    def from_args(args):
-        credentials = AzureCredentials.from_args(args)
-        settings = AzureCollectSettings.from_args(args)
-        return AzureCollectRequest(credentials, settings)
+        self.subscription_id = subscription_id
