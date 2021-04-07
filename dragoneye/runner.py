@@ -10,13 +10,13 @@ from dragoneye.dragoneye_exception import DragoneyeException
 
 def run(credentials: CloudCredentials, collect_settings: CloudScanSettings) -> str:
 
-    if collect_settings.cloud_provider == CloudProvider.Aws:
+    if collect_settings.cloud_provider == CloudProvider.AWS:
         aws_collect_settings: AwsCloudScanSettings = collect_settings
         aws_credentials: AwsCredentials = credentials
         session = AwsSessionFactory.get_session(aws_credentials)
         cloud_scanner = AwsScanner(session, aws_collect_settings)
         output_path = cloud_scanner.scan()
-    elif collect_settings.cloud_provider == CloudProvider.Azure:
+    elif collect_settings.cloud_provider == CloudProvider.AZURE:
         azure_collect_settings: AzureCloudScanSettings = collect_settings
         azure_credentials: AzureCredentials = credentials
         auth_header = AzureAuthorizer.get_authorization_token(azure_credentials)
@@ -25,5 +25,5 @@ def run(credentials: CloudCredentials, collect_settings: CloudScanSettings) -> s
     else:
         raise DragoneyeException(f'Unknown cloud provider. '
                                  f'Got: {collect_settings.cloud_provider}, '
-                                 f'expected: {CloudProvider.Aws} or {CloudProvider.Azure}')
+                                 f'expected: {CloudProvider.AWS} or {CloudProvider.AZURE}')
     return output_path

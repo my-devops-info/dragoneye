@@ -3,8 +3,8 @@ from enum import Enum
 
 
 class CloudProvider(str, Enum):
-    Aws = 'aws'
-    Azure = 'azure'
+    AWS = 'aws'
+    AZURE = 'azure'
 
 
 class CloudCredentials:

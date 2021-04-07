@@ -22,7 +22,7 @@ class AzureCloudScanSettings(CloudScanSettings):
                  output_path: str = os.getcwd(),
                  should_clean_before_collect: bool = True
                  ):
-        super().__init__(cloud_provider=CloudProvider.Azure,
+        super().__init__(cloud_provider=CloudProvider.AZURE,
                          account_name=account_name,
                          should_clean_before_collect=should_clean_before_collect,
                          output_path=output_path,
