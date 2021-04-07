@@ -36,7 +36,8 @@ def scan():
               type=click.STRING)
 @click.option('--scan-commands-path',
               help='The file path to the yaml file that contains all the scan commands to run',
-              type=click.STRING)
+              type=click.STRING,
+              required=True)
 @click.option("--clean",
               help="Remove any existing data for the account before gathering",
               is_flag=True,
@@ -50,7 +51,6 @@ def add_cloud_account_azure(cloud_account_name: str,
                             scan_commands_path, clean, output_path):
     azure_credentials = AzureCredentials(
         tenant_id=tenant_id,
-        subscription_id=subscription_id,
         client_id=client_id,
         client_secret=client_secret)
 
@@ -98,7 +98,8 @@ def add_cloud_account_azure(cloud_account_name: str,
 # common to all providers
 @click.option('--scan-commands-path',
               help='The file path to the yaml file that contains all the scan commands to run',
-              type=click.STRING)
+              type=click.STRING,
+              required=True)
 @click.option("--clean",
               help="Remove any existing data for the account before gathering",
               is_flag=True,

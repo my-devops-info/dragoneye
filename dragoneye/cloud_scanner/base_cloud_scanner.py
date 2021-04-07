@@ -27,9 +27,9 @@ class CloudScanSettings:
 
 class BaseCloudScanner:
     @abstractmethod
-    def collect(self, collect_request: CloudScanSettings) -> str:
+    def scan(self) -> str:
         pass
 
     @abstractmethod
     def test_connectivity(self, cloud_credentials: CloudCredentials):
-         pass
+        pass

@@ -41,4 +41,3 @@ class AwsCloudScanSettings(CloudScanSettings):
         self.duration_session_time: int = duration_session_time
         self.max_pool_connections: int = max_pool_connections
         self.command_timeout: int = command_timeout
-

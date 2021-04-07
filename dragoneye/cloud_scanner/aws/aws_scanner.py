@@ -26,29 +26,32 @@ MAX_RETRIES = 3
 
 class AwsScanner(BaseCloudScanner):
 
+    def __init__(self, session, settings: AwsCloudScanSettings):
+        self.session = session
+        self.settings = settings
+
     def test_connectivity(self, cloud_credentials: CloudCredentials):
         aws_cloud_credentials: AwsCredentials = cloud_credentials
         try:
             AwsSessionFactory.get_session(aws_cloud_credentials)
             return True
-        except:
+        except Exception:
             return False
 
-    @classmethod
     @elapsed_time
-    def collect(cls, boto_session, scan_settings: AwsCloudScanSettings) -> str:
+    def scan(self) -> str:
         logging.getLogger("botocore").setLevel(logging.WARN)
-        account_name = scan_settings.account_name
-        session = boto_session
-        account_data_dir = init_directory(scan_settings.output_path, account_name, scan_settings.clean)
+        account_name = self.settings.account_name
+        session = self.session
+        account_data_dir = init_directory(self.settings.output_path, account_name, self.settings.clean)
         summary = []
 
         regions_filter = None
-        if len(scan_settings.regions_filter) > 0:
-            regions_filter = scan_settings.regions_filter.lower().split(",")
+        if len(self.settings.regions_filter) > 0:
+            regions_filter = self.settings.regions_filter.lower().split(",")
             # Force include of default region -- seems to be required
-            if scan_settings.default_region not in regions_filter:
-                regions_filter.append(scan_settings.default_region)
+            if self.settings.default_region not in regions_filter:
+                regions_filter.append(self.settings.default_region)
 
         print("* Getting region names", flush=True)
         ec2 = session.client("ec2")
@@ -78,14 +81,14 @@ class AwsScanner(BaseCloudScanner):
             "organizations",
         ]
 
-        collect_commands = load_yaml(scan_settings.commands_path)
+        collect_commands = load_yaml(self.settings.commands_path)
 
         executor: ThreadPoolExecutor = ThreadPoolExecutor(max_workers=10)
         dependable_commands = [command for command in collect_commands if command.get("Parameters", False)]
         non_dependable_commands = [command for command in collect_commands if not command.get("Parameters", False)]
         for region in region_dict_list:
-            executor.submit(cls._collect_region_data, region, dependable_commands, non_dependable_commands, session,
-                            universal_services, scan_settings, account_data_dir, summary)
+            executor.submit(self._collect_region_data, region, dependable_commands, non_dependable_commands, session,
+                            universal_services, self.settings, account_data_dir, summary)
         executor.shutdown(True)
 
         # Print summary
@@ -280,8 +283,7 @@ class AwsScanner(BaseCloudScanner):
         print("finished call for {}".format(outputfile), flush=True)
         summary.append(call_summary)
 
-    @classmethod
-    def _collect_command_data(cls, region, runner, session, universal_services, arguments, account_dir, summary):
+    def _collect_command_data(self, region, runner, session, universal_services, arguments, account_dir, summary):
         executor: ThreadPoolExecutor = ThreadPoolExecutor(max_workers=20)
         tasks = []
         region = copy.deepcopy(region)
@@ -315,10 +317,10 @@ class AwsScanner(BaseCloudScanner):
             is_dynamic = "|" in value
             parameter_keys.add(name)
             if not is_dynamic:
-                param_groups = cls._fill_simple_params(param_groups, name, value)
+                param_groups = self._fill_simple_params(param_groups, name, value)
             else:
                 group = parameter.get("Group", False)
-                param_groups = cls._fill_dynamic_params(param_groups, name, value, group, account_dir, region)
+                param_groups = self._fill_dynamic_params(param_groups, name, value, group, account_dir, region)
 
         if runner.get("Parameters"):
             make_directory(filepath)
@@ -327,7 +329,7 @@ class AwsScanner(BaseCloudScanner):
                     continue
                 file_name = urllib.parse.quote_plus('_'.join([f'{k}-{v}' for k, v in param_group.items()]))
                 output_file = f"{filepath}/{file_name}.json"
-                tasks.append(executor.submit(cls._call_function,
+                tasks.append(executor.submit(AwsScanner._call_function,
                                              output_file,
                                              handler,
                                              method_to_call,
@@ -337,7 +339,7 @@ class AwsScanner(BaseCloudScanner):
                                              ))
         else:
             filepath = filepath + ".json"
-            tasks.append(executor.submit(cls._call_function,
+            tasks.append(executor.submit(AwsScanner._call_function,
                                          filepath,
                                          handler,
                                          method_to_call,
@@ -352,16 +354,15 @@ class AwsScanner(BaseCloudScanner):
         for timeout_task in timeout_tasks:
             timeout_task.cancel()
 
-    @classmethod
-    def _collect_region_data(cls, region, dependable_commands, non_dependable_commands, session, universal_services, arguments,
+    def _collect_region_data(self, region, dependable_commands, non_dependable_commands, session, universal_services, arguments,
                              account_dir, summary):
         executor: ThreadPoolExecutor = ThreadPoolExecutor(max_workers=20)
         for command in non_dependable_commands:
-            executor.submit(cls._collect_command_data, region, command, session, universal_services, arguments, account_dir, summary)
+            executor.submit(self._collect_command_data, region, command, session, universal_services, arguments, account_dir, summary)
         executor.shutdown(True)
 
         for command in dependable_commands:
-            cls._collect_command_data(region, command, session, universal_services, arguments, account_dir, summary)
+            self._collect_command_data(region, command, session, universal_services, arguments, account_dir, summary)
 
     @staticmethod
     def _get_call_parameters(call_parameters: dict, parameters_def: list) -> List[dict]:

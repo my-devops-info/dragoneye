@@ -6,21 +6,12 @@ from dragoneye.cloud_scanner.base_cloud_scanner import CloudCredentials, CloudSc
 class AzureCredentials(CloudCredentials):
     def __init__(self,
                  tenant_id: str,
-                 subscription_id: str,
                  client_id: str,
                  client_secret: str
                  ):
         self.tenant_id: str = tenant_id
-        self.subscription_id: str = subscription_id
         self.client_id: str = client_id
         self.client_secret: str = client_secret
-
-    @staticmethod
-    def from_args(args):
-        return AzureCredentials(tenant_id=args.tenant_id,
-                                subscription_id=args.subscription_id,
-                                client_id=args.client_id,
-                                client_secret=args.client_secret)
 
 
 class AzureCloudScanSettings(CloudScanSettings):
