@@ -8,8 +8,7 @@ from dragoneye.cloud_scanner.base_cloud_scanner import CloudCredentials, CloudSc
 from dragoneye.dragoneye_exception import DragoneyeException
 
 
-def run(credentials: CloudCredentials, collect_settings: CloudScanSettings) -> str:
-
+def scan(credentials: CloudCredentials, collect_settings: CloudScanSettings) -> str:
     if collect_settings.cloud_provider == CloudProvider.AWS:
         aws_collect_settings: AwsCloudScanSettings = collect_settings
         aws_credentials: AwsCredentials = credentials
@@ -27,3 +26,15 @@ def run(credentials: CloudCredentials, collect_settings: CloudScanSettings) -> s
                                  f'Got: {collect_settings.cloud_provider}, '
                                  f'expected: {CloudProvider.AWS} or {CloudProvider.AZURE}')
     return output_path
+
+
+def test_connectivity(cloud_credentials: CloudCredentials) -> bool:
+    try:
+        if isinstance(cloud_credentials, AwsCredentials):
+            AwsSessionFactory.get_session(cloud_credentials)
+        elif isinstance(cloud_credentials, AzureCredentials):
+            AzureAuthorizer.get_authorization_token(cloud_credentials)
+        return True
+    except Exception:
+        # TODO: log
+        return False

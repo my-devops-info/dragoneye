@@ -6,8 +6,7 @@ import json
 
 from requests import Response
 
-from dragoneye.cloud_scanner.azure.azure_authorizer import AzureAuthorizer
-from dragoneye.cloud_scanner.azure.azure_scan_request import AzureCredentials, AzureCloudScanSettings
+from dragoneye.cloud_scanner.azure.azure_scan_request import AzureCloudScanSettings
 from dragoneye.cloud_scanner.base_cloud_scanner import BaseCloudScanner
 from dragoneye.utils.misc_utils import elapsed_time, invoke_get_request, init_directory, load_yaml, get_dynamic_values_from_files, \
     custom_serializer
@@ -18,13 +17,6 @@ class AzureScanner(BaseCloudScanner):
     def __init__(self, auth_header: str, settings: AzureCloudScanSettings):
         self.auth_header = auth_header
         self.settings = settings
-
-    def test_connectivity(self, cloud_credentials: AzureCredentials):
-        try:
-            AzureAuthorizer.get_authorization_token(cloud_credentials)
-            return True
-        except Exception:
-            return False
 
     @elapsed_time
     def scan(self) -> str:

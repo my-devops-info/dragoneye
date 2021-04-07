@@ -14,9 +14,8 @@ import urllib.parse
 from botocore.exceptions import ClientError, EndpointConnectionError, NoCredentialsError
 from botocore.config import Config
 
-from dragoneye.cloud_scanner.aws.aws_scan_request import AwsCredentials, AwsCloudScanSettings
-from dragoneye.cloud_scanner.aws.aws_session_factory import AwsSessionFactory
-from dragoneye.cloud_scanner.base_cloud_scanner import BaseCloudScanner, CloudCredentials
+from dragoneye.cloud_scanner.aws.aws_scan_request import AwsCloudScanSettings
+from dragoneye.cloud_scanner.base_cloud_scanner import BaseCloudScanner
 from dragoneye.dragoneye_exception import DragoneyeException
 from dragoneye.utils.misc_utils import get_dynamic_values_from_files, custom_serializer, make_directory, init_directory, load_yaml, snakecase, \
     elapsed_time
@@ -29,14 +28,6 @@ class AwsScanner(BaseCloudScanner):
     def __init__(self, session, settings: AwsCloudScanSettings):
         self.session = session
         self.settings = settings
-
-    def test_connectivity(self, cloud_credentials: CloudCredentials):
-        aws_cloud_credentials: AwsCredentials = cloud_credentials
-        try:
-            AwsSessionFactory.get_session(aws_cloud_credentials)
-            return True
-        except Exception:
-            return False
 
     @elapsed_time
     def scan(self) -> str:

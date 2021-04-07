@@ -2,7 +2,7 @@ import os
 import click
 from click_aliases import ClickAliasedGroup
 
-from dragoneye import run
+from dragoneye.runner import scan
 from dragoneye.cloud_scanner.aws.aws_scan_request import AwsCredentials, AwsCloudScanSettings
 from dragoneye.cloud_scanner.aws.aws_utils import AwsUtils
 from dragoneye.cloud_scanner.azure.azure_scan_request import AzureCredentials, AzureCloudScanSettings
@@ -12,13 +12,13 @@ from dragoneye.cloud_scanner.azure.azure_scan_request import AzureCredentials, A
              short_help='Scan cloud account.',
              help='Scan cloud account. Currently supported: AWS, Azure',
              cls=ClickAliasedGroup)
-def scan():
+def scan_cli():
     pass
 
 
-@scan.command(name='azure',
-              short_help='Scan an Azure cloud account',
-              help='Scan an Azure cloud account.')
+@scan_cli.command(name='azure',
+                  short_help='Scan an Azure cloud account',
+                  help='Scan an Azure cloud account.')
 @click.option('--cloud-account-name', '-n',
               help='The name of your cloud account',
               type=click.STRING)
@@ -61,12 +61,12 @@ def add_cloud_account_azure(cloud_account_name: str,
         should_clean_before_collect=clean,
         output_path=output_path)
 
-    run(azure_credentials, azure_collect_settings)
+    scan(azure_credentials, azure_collect_settings)
 
 
-@scan.command(name='aws',
-              short_help='Scan an AWS cloud account',
-              help='Scan an AWS cloud account.')
+@scan_cli.command(name='aws',
+                  short_help='Scan an AWS cloud account',
+                  help='Scan an AWS cloud account.')
 @click.option('--cloud-account-name', '-n',
               help='The name of your cloud account',
               type=click.STRING)
@@ -125,8 +125,8 @@ def aws(cloud_account_name,
         should_clean_before_collect=clean,
         output_path=output_path
     )
-    run(aws_credentials, aws_collect_settings)
+    scan(aws_credentials, aws_collect_settings)
 
 
 if __name__ == '__main__':
-    scan()
+    scan_cli()

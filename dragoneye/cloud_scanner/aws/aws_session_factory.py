@@ -1,3 +1,5 @@
+from typing import Optional
+
 import boto3
 from botocore.exceptions import ClientError
 
@@ -7,16 +9,19 @@ from dragoneye.dragoneye_exception import DragoneyeException
 
 class AwsSessionFactory:
     @staticmethod
-    def get_session(credentials: AwsCredentials):
+    def get_session(credentials: AwsCredentials,
+                    region: Optional[str] = None):
         if credentials.account_id and credentials.role_name and credentials.external_id:
             # use assume rule
             session = AwsSessionFactory._get_session_using_assume_role(credentials.account_id,
                                                                        credentials.role_name,
                                                                        credentials.external_id,
-                                                                       credentials.session_duration)
+                                                                       credentials.session_duration,
+                                                                       region)
         else:
-            # TODO: Ask Tomer if we should get the keys as params
-            session_data = {} # {"region_name": region}
+            session_data = {}
+            if region:
+                session_data["region_name"] = region
             if credentials.profile_name:
                 session_data["profile_name"] = credentials.profile_name
             session = boto3.Session(**session_data)
@@ -24,7 +29,7 @@ class AwsSessionFactory:
         return session
 
     @staticmethod
-    def _get_session_using_assume_role(account_id, role_name, external_id, session_duration):
+    def _get_session_using_assume_role(account_id, role_name, external_id, session_duration, region):
         role_arn = "arn:aws:iam::" + account_id + ":role/" + role_name
         role_session_name = "DragoneyeSession"
         # TODO: replace with logger
@@ -38,7 +43,8 @@ class AwsSessionFactory:
         credentials = response['Credentials']
         session = boto3.Session(aws_access_key_id=credentials['AccessKeyId'],
                                 aws_secret_access_key=credentials['SecretAccessKey'],
-                                aws_session_token=credentials['SessionToken'])
+                                aws_session_token=credentials['SessionToken'],
+                                region_name=region)
         return session
 
     @staticmethod

@@ -29,7 +29,3 @@ class BaseCloudScanner:
     @abstractmethod
     def scan(self) -> str:
         pass
-
-    @abstractmethod
-    def test_connectivity(self, cloud_credentials: CloudCredentials):
-        pass
