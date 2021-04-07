@@ -10,48 +10,39 @@ import json
 import time
 from typing import List, Dict
 
-import boto3
 import urllib.parse
 from botocore.exceptions import ClientError, EndpointConnectionError, NoCredentialsError
 from botocore.config import Config
 
-from dragoneye.collect_requests.aws_collect_request import AwsCollectRequest, AwsAssumeRoleCredentials, AwsAccessKeyCredentials
-from dragoneye.collectors.base_collect_tool.base_collect_tool import BaseCollect
+from dragoneye.cloud_scanner.aws.aws_scan_request import AwsCloudScanSettings
+from dragoneye.cloud_scanner.base_cloud_scanner import BaseCloudScanner
+from dragoneye.dragoneye_exception import DragoneyeException
 from dragoneye.utils.misc_utils import get_dynamic_values_from_files, custom_serializer, make_directory, init_directory, load_yaml, snakecase, \
     elapsed_time
 
 MAX_RETRIES = 3
 
 
-class CloudMapperCollectException(Exception):
-    def __init__(self, message, errors=None):
-        super().__init__(message)
-        if errors is None:
-            errors = []
-        self.errors = errors
+class AwsScanner(BaseCloudScanner):
 
+    def __init__(self, session, settings: AwsCloudScanSettings):
+        self.session = session
+        self.settings = settings
 
-class AwsCollectTool(BaseCollect):
-    @classmethod
     @elapsed_time
-    def collect(cls, collect_request: AwsCollectRequest) -> str:
+    def scan(self) -> str:
         logging.getLogger("botocore").setLevel(logging.WARN)
-        account_name = collect_request.collect_settings.account_name
-
+        account_name = self.settings.account_name
+        session = self.session
+        account_data_dir = init_directory(self.settings.output_path, account_name, self.settings.clean)
         summary = []
 
-        account_data_dir = init_directory(collect_request.collect_settings.output_path, account_name, collect_request.collect_settings.clean)
-
-        default_region = cls._get_default_region()
-
-        session = cls._get_session(collect_request)
-
         regions_filter = None
-        if len(collect_request.collect_settings.regions_filter) > 0:
-            regions_filter = collect_request.collect_settings.regions_filter.lower().split(",")
+        if len(self.settings.regions_filter) > 0:
+            regions_filter = self.settings.regions_filter.lower().split(",")
             # Force include of default region -- seems to be required
-            if default_region not in regions_filter:
-                regions_filter.append(default_region)
+            if self.settings.default_region not in regions_filter:
+                regions_filter.append(self.settings.default_region)
 
         print("* Getting region names", flush=True)
         ec2 = session.client("ec2")
@@ -81,14 +72,14 @@ class AwsCollectTool(BaseCollect):
             "organizations",
         ]
 
-        collect_commands = load_yaml(collect_request.collect_settings.commands_path)
+        collect_commands = load_yaml(self.settings.commands_path)
 
         executor: ThreadPoolExecutor = ThreadPoolExecutor(max_workers=10)
         dependable_commands = [command for command in collect_commands if command.get("Parameters", False)]
         non_dependable_commands = [command for command in collect_commands if not command.get("Parameters", False)]
         for region in region_dict_list:
-            executor.submit(cls._collect_region_data, region, default_region, dependable_commands, non_dependable_commands, session,
-                            universal_services, collect_request, account_data_dir, summary)
+            executor.submit(self._collect_region_data, region, dependable_commands, non_dependable_commands, session,
+                            universal_services, self.settings, account_data_dir, summary)
         executor.shutdown(True)
 
         # Print summary
@@ -112,14 +103,6 @@ class AwsCollectTool(BaseCollect):
                 )
             # Ensure errors can be detected
         return os.path.abspath(os.path.join(account_data_dir, '..'))
-
-    @classmethod
-    def test_authentication(cls, collect_request: AwsCollectRequest) -> bool:
-        try:
-            cls._get_session(collect_request)
-            return True
-        except Exception:
-            return False
 
     @staticmethod
     def _get_identifier_from_parameter(parameter):
@@ -291,8 +274,7 @@ class AwsCollectTool(BaseCollect):
         print("finished call for {}".format(outputfile), flush=True)
         summary.append(call_summary)
 
-    @classmethod
-    def _collect_command_data(cls, region, default_region, runner, session, universal_services, arguments, account_dir, summary):
+    def _collect_command_data(self, region, runner, session, universal_services, arguments, account_dir, summary):
         executor: ThreadPoolExecutor = ThreadPoolExecutor(max_workers=20)
         tasks = []
         region = copy.deepcopy(region)
@@ -303,7 +285,7 @@ class AwsCollectTool(BaseCollect):
         )
         # Only call universal services in default region
         if runner["Service"] in universal_services:
-            if region["RegionName"] != default_region:
+            if region["RegionName"] != arguments.default_region:
                 return
         elif runner["Service"] != 'eks' and region["RegionName"] not in session.get_available_regions(runner["Service"]):
             print("Skipping region {}, as {} does not exist there"
@@ -311,8 +293,8 @@ class AwsCollectTool(BaseCollect):
             return
         handler = session.client(
             runner["Service"], region_name=region["RegionName"],
-            config=Config(retries={'max_attempts': arguments.collect_settings.max_attempts, 'mode': 'standard'},
-                          max_pool_connections=arguments.collect_settings.max_pool_connections)
+            config=Config(retries={'max_attempts': arguments.max_attempts, 'mode': 'standard'},
+                          max_pool_connections=arguments.max_pool_connections)
         )
 
         filepath = os.path.join(account_dir, region["RegionName"], f'{runner["Service"]}--{runner["Request"]}')
@@ -326,10 +308,10 @@ class AwsCollectTool(BaseCollect):
             is_dynamic = "|" in value
             parameter_keys.add(name)
             if not is_dynamic:
-                param_groups = cls._fill_simple_params(param_groups, name, value)
+                param_groups = self._fill_simple_params(param_groups, name, value)
             else:
                 group = parameter.get("Group", False)
-                param_groups = cls._fill_dynamic_params(param_groups, name, value, group, account_dir, region)
+                param_groups = self._fill_dynamic_params(param_groups, name, value, group, account_dir, region)
 
         if runner.get("Parameters"):
             make_directory(filepath)
@@ -338,7 +320,7 @@ class AwsCollectTool(BaseCollect):
                     continue
                 file_name = urllib.parse.quote_plus('_'.join([f'{k}-{v}' for k, v in param_group.items()]))
                 output_file = f"{filepath}/{file_name}.json"
-                tasks.append(executor.submit(cls._call_function,
+                tasks.append(executor.submit(AwsScanner._call_function,
                                              output_file,
                                              handler,
                                              method_to_call,
@@ -348,7 +330,7 @@ class AwsCollectTool(BaseCollect):
                                              ))
         else:
             filepath = filepath + ".json"
-            tasks.append(executor.submit(cls._call_function,
+            tasks.append(executor.submit(AwsScanner._call_function,
                                          filepath,
                                          handler,
                                          method_to_call,
@@ -363,71 +345,15 @@ class AwsCollectTool(BaseCollect):
         for timeout_task in timeout_tasks:
             timeout_task.cancel()
 
-    @classmethod
-    def _collect_region_data(cls, region, default_region, dependable_commands, non_dependable_commands, session, universal_services, arguments,
+    def _collect_region_data(self, region, dependable_commands, non_dependable_commands, session, universal_services, arguments,
                              account_dir, summary):
         executor: ThreadPoolExecutor = ThreadPoolExecutor(max_workers=20)
         for command in non_dependable_commands:
-            executor.submit(cls._collect_command_data, region, default_region, command, session, universal_services, arguments, account_dir, summary)
+            executor.submit(self._collect_command_data, region, command, session, universal_services, arguments, account_dir, summary)
         executor.shutdown(True)
 
         for command in dependable_commands:
-            cls._collect_command_data(region, default_region, command, session, universal_services, arguments, account_dir, summary)
-
-    @classmethod
-    def _get_session(cls, arguments: AwsCollectRequest):
-        if isinstance(arguments.credentials, AwsAssumeRoleCredentials):
-            return cls._get_session_by_assume_role(arguments.credentials, arguments.collect_settings.duration_session_time)
-        elif isinstance(arguments.credentials, AwsAccessKeyCredentials):
-            return cls._get_session_by_access_key(arguments.credentials, cls._get_default_region())
-        else:
-            raise Exception(f'Unknown credentials type. Got: {type(arguments.credentials).__name__}, '
-                            f'expected: ({AwsAssumeRoleCredentials.__name__}, {AwsAccessKeyCredentials.__name__})')
-
-    @classmethod
-    def _get_session_by_access_key(cls, credentials: AwsAccessKeyCredentials, default_region):
-        session_data = {"region_name": default_region}
-
-        if credentials.profile_name:
-            session_data["profile_name"] = credentials.profile_name
-
-        session = boto3.Session(**session_data)
-        cls._assert_session(session)
-
-        return session
-
-    @classmethod
-    def _get_session_by_assume_role(cls, credentials: AwsAssumeRoleCredentials, session_duration: int):
-        account_id = credentials.account_id
-        role_name = credentials.role_name
-        external_id = credentials.external_id
-        role_arn = "arn:aws:iam::" + account_id + ":role/" + role_name
-        role_session_name = "cloudmapperSession"
-        print('will try to assume role using ARN: {} and external id {} for account {}'.format(role_arn, external_id, account_id))
-        client = boto3.client('sts')
-        response = client.assume_role(RoleArn=role_arn,
-                                      RoleSessionName=role_session_name,
-                                      DurationSeconds=session_duration,
-                                      ExternalId=external_id)
-        credentials = response['Credentials']
-        session = boto3.Session(aws_access_key_id=credentials['AccessKeyId'],
-                                aws_secret_access_key=credentials['SecretAccessKey'],
-                                aws_session_token=credentials['SessionToken'],
-                                region_name=cls._get_default_region())
-
-        cls._assert_session(session)
-        return session
-
-    @staticmethod
-    def _get_default_region() -> str:
-        default_region = os.environ.get("AWS_REGION", "us-east-1")
-        if 'gov-' in default_region:
-            default_region = 'us-gov-west-1'
-        elif 'cn-' in default_region:
-            default_region = 'cn-north-1'
-        else:
-            default_region = 'us-east-1'
-        return default_region
+            self._collect_command_data(region, command, session, universal_services, arguments, account_dir, summary)
 
     @staticmethod
     def _get_call_parameters(call_parameters: dict, parameters_def: list) -> List[dict]:
@@ -460,25 +386,25 @@ class AwsCollectTool(BaseCollect):
             sts.get_caller_identity()
         except ClientError as ex:
             if "InvalidClientTokenId" in str(ex):
-                raise CloudMapperCollectException('sts.get_caller_identity failed with InvalidClientTokenId. '
-                                                  'Likely cause is no AWS credentials are set', ex)
-            raise CloudMapperCollectException('Unknown exception when trying to call sts.get_caller_identity: {}'.format(ex), ex)
+                raise DragoneyeException('sts.get_caller_identity failed with InvalidClientTokenId. '
+                                         'Likely cause is no AWS credentials are set', ex)
+            raise DragoneyeException('Unknown exception when trying to call sts.get_caller_identity: {}'.format(ex), ex)
 
         iam = session.client("iam")
         try:
             iam.get_user(UserName="CloudMapper")
         except ClientError as ex:
             if "InvalidClientTokenId" in str(ex):
-                raise CloudMapperCollectException(
+                raise DragoneyeException(
                     "AWS doesn't allow you to make IAM calls from a session without MFA, and the collect command gathers IAM data.  "
                     "Please use MFA or don't use a session. With aws-vault, specify `--no-session` on your `exec`.", ex)
             if "NoSuchEntity" in str(ex):
                 # Ignore, we're just testing that our credentials work
                 pass
             else:
-                raise CloudMapperCollectException('Ensure your credentials are valid', ex)
+                raise DragoneyeException('Ensure your credentials are valid', ex)
         except NoCredentialsError as ex:
-            raise CloudMapperCollectException("No AWS credentials configured.", ex)
+            raise DragoneyeException("No AWS credentials configured.", ex)
 
     @staticmethod
     def _fill_simple_params(param_groups, name, value):

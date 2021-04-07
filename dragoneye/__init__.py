@@ -1,5 +1,6 @@
-from .collect_requests.azure_collect_request import AzureCollectRequest, AzureCollectSettings, AzureCredentials
-from .collect_requests.aws_collect_request import AwsCollectRequest, AwsCollectSettings, AwsAccessKeyCredentials, AwsAssumeRoleCredentials
+import importlib
 
-# pylint: disable=cyclic-import
-from .runner import collect
+from dragoneye.cloud_scanner.aws.aws_scan_request import AwsCredentials, AwsCloudScanSettings
+from dragoneye.cloud_scanner.azure.azure_scan_request import AzureCredentials, AzureCloudScanSettings
+if importlib.util.find_spec("runner") is None:
+    from .runner import scan, test_connectivity
