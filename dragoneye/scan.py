@@ -32,8 +32,8 @@ class MutexOption(click.Option):
                             + "' is mutually exclusive with "
                             + str(other_param.human_readable_name) + "."
                         )
-                    else:
-                        self.required = None
+
+                    self.required = None
         return super(MutexOption, self).handle_parse_result(ctx, opts, args)
 
 
@@ -182,7 +182,6 @@ def aws(cloud_account_name,
         output_path=output_path
     )
     scan(aws_credentials, aws_collect_settings)
-    return
 
 
 if __name__ == '__main__':

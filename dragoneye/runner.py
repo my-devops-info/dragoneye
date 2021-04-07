@@ -41,4 +41,3 @@ def test_connectivity(cloud_credentials: CloudCredentials) -> bool:
     except Exception:
         # TODO: log
         return False
-
