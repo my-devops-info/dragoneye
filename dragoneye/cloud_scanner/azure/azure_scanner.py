@@ -110,9 +110,10 @@ class AzureScanner(BaseCloudScanner):
     @staticmethod
     def _add_resource_group(results: dict) -> None:
         for item in results['value']:
-            item_id = item['id']
-            try:
-                resource_group = item_id.split('resourceGroups/')[1].split('/')[0]
-                item['resourceGroup'] = resource_group
-            except Exception:
-                pass
+            if 'id' in item:
+                item_id = item['id']
+                try:
+                    resource_group = item_id.split('resourceGroups/')[1].split('/')[0]
+                    item['resourceGroup'] = resource_group
+                except Exception:
+                    pass
