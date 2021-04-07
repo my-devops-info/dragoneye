@@ -16,7 +16,7 @@ class MutexOption(click.Option):
 
         assert self.not_required_if, "'not_required_if' parameter required"
         kwargs["help"] = (kwargs.get("help", "") + ".\tOption is mutually exclusive with " + ", ".join(self.not_required_if) + ".").strip()
-        super(MutexOption, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
     def handle_parse_result(self, ctx, opts, args):
         current_opt: bool = self.consume_value(ctx, opts)
@@ -34,7 +34,7 @@ class MutexOption(click.Option):
                         )
 
                     self.required = None
-        return super(MutexOption, self).handle_parse_result(ctx, opts, args)
+        return super().handle_parse_result(ctx, opts, args)
 
 
 aws_mutex_groups = {
