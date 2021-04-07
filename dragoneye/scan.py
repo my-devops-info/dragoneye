@@ -1,4 +1,6 @@
 import os
+from typing import List
+
 import click
 from click_aliases import ClickAliasedGroup
 
@@ -6,6 +8,48 @@ from dragoneye.runner import scan
 from dragoneye.cloud_scanner.aws.aws_scan_request import AwsCredentials, AwsCloudScanSettings
 from dragoneye.cloud_scanner.aws.aws_utils import AwsUtils
 from dragoneye.cloud_scanner.azure.azure_scan_request import AzureCredentials, AzureCloudScanSettings
+
+
+class MutexOption(click.Option):
+    def __init__(self, *args, **kwargs):
+        self.not_required_if: list = kwargs.pop("not_required_if")
+
+        assert self.not_required_if, "'not_required_if' parameter required"
+        kwargs["help"] = (kwargs.get("help", "") + ".\tOption is mutually exclusive with " + ", ".join(self.not_required_if) + ".").strip()
+        super(MutexOption, self).__init__(*args, **kwargs)
+
+    def handle_parse_result(self, ctx, opts, args):
+        current_opt: bool = self.consume_value(ctx, opts)
+        for other_param in ctx.command.get_params(ctx):
+            if other_param is self:
+                continue
+            if other_param.human_readable_name in self.not_required_if:
+                other_opt: bool = other_param.consume_value(ctx, opts)
+                if other_opt:
+                    if current_opt:
+                        raise click.UsageError(
+                            "Illegal usage: '" + str(self.name)
+                            + "' is mutually exclusive with "
+                            + str(other_param.human_readable_name) + "."
+                        )
+                    else:
+                        self.required = None
+        return super(MutexOption, self).handle_parse_result(ctx, opts, args)
+
+
+aws_mutex_groups = {
+    'assume-role': ['role-name', 'external-id', 'account-id'],
+    'access-key': ['aws-access-key-id', 'aws-secret-access-key'],
+    'profile': ['profile']
+}
+
+
+def get_aws_mutex_groups(my_group: str) -> List[str]:
+    result = []
+    for group, group_params in aws_mutex_groups.items():
+        if group != my_group:
+            result.extend(group_params)
+    return result
 
 
 @click.group(name='scan',
@@ -73,24 +117,36 @@ def add_cloud_account_azure(cloud_account_name: str,
 # For assume role
 @click.option('--role-name',
               help='IAM role name to assume',
-              type=click.STRING)
+              type=click.STRING,
+              cls=MutexOption,
+              not_required_if=get_aws_mutex_groups('assume-role'))
 @click.option('--external-id',
               help='External id',
-              type=click.STRING)
+              type=click.STRING,
+              cls=MutexOption,
+              not_required_if=get_aws_mutex_groups('assume-role'))
 @click.option('--account-id',
               help='ID of AWS account to be added',
-              type=click.STRING)
+              type=click.STRING,
+              cls=MutexOption,
+              not_required_if=get_aws_mutex_groups('assume-role'))
 # Using keys
 @click.option('--aws-access-key-id',
               help='aws access key id',
-              type=click.STRING)
+              type=click.STRING,
+              cls=MutexOption,
+              not_required_if=get_aws_mutex_groups('access-key'))
 @click.option('--aws-secret-access-key',
               help='aws secret access key',
-              type=click.STRING)
+              type=click.STRING,
+              cls=MutexOption,
+              not_required_if=get_aws_mutex_groups('access-key'))
 # user aws profile
 @click.option('--profile',
               help='aws profile',
-              type=click.STRING)
+              type=click.STRING,
+              cls=MutexOption,
+              not_required_if=get_aws_mutex_groups('profile'))
 @click.option("--regions",
               help="Filter and query AWS only for the given regions (comma separated)",
               type=click.STRING,
@@ -126,6 +182,7 @@ def aws(cloud_account_name,
         output_path=output_path
     )
     scan(aws_credentials, aws_collect_settings)
+    return
 
 
 if __name__ == '__main__':
