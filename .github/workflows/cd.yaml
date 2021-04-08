@@ -4,10 +4,9 @@
 name: CD
 
 on:
-  push:
-    branches: [ main ]
-  pull_request:
-    branches: [ main ]
+  create:
+    tags:
+      - 'v*.*.*'
 
 jobs:
   build:
@@ -19,6 +18,12 @@ jobs:
 
     steps:
     - uses: actions/checkout@v2
+    - name: Set env
+      run: echo "RELEASE_VERSION=${GITHUB_REF#refs/*/}" >> $GITHUB_ENV
+    - name: echo release version
+      run: |
+        echo $RELEASE_VERSION
+        echo ${{ env.RELEASE_VERSION }}
     - name: Set up Python ${{ matrix.python-version }}
       uses: actions/setup-python@v2
       with:
@@ -33,5 +38,5 @@ jobs:
         pytest
     - name: Upload pip package to testpypi
       run: |
-        python setup.py sdist bdist_wheel --version 0.0.1
+        python setup.py sdist bdist_wheel --version $RELEASE_VERSION
         twine upload -r testpypi dist/*  -u __token__ -p ${{ secrets.TEST_PYPI_API_TOKEN }}
