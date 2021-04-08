@@ -32,6 +32,6 @@ jobs:
       run: |
         pytest
     - name: Upload pip package to testpypi
-        run: |
-          python setup.py sdist bdist_wheel --version 0.0.1
-          twine upload testpypi dist/* -p ${{ secrets.TEST_PYPI_API_TOKEN }}
+      run: |
+        python setup.py sdist bdist_wheel --version 0.0.1
+        twine upload testpypi dist/* -p ${{ secrets.TEST_PYPI_API_TOKEN }}
