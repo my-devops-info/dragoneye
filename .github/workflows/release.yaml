@@ -12,9 +12,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - name: update docs and bump version
+      GITHUB_TOKEN: ${{ secrets.ALON_PAT_DRAGONEYE }}
       run: |
-        gh release create ${{ github.event.inputs.tags }}  -t ${{ github.event.inputs.tags }} --repo indeni/dragoneye
+        gh release create ${{ github.event.inputs.tagVersion }}  -t ${{ github.event.inputs.tagVersion }} --repo indeni/dragoneye
   release-packadge-to-pipy:
+    needs: [create-new-release]
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -22,7 +24,7 @@ jobs:
 
     steps:
     - uses: actions/checkout@v2
-    - run: git checkout tags/${{ github.event.inputs.tags }} -b ${{ github.event.inputs.tags }}
+    - run: git checkout tags/${{ github.event.inputs.tagVersion }} -b ${{ github.event.inputs.tagVersion }}
     - name: Set up Python ${{ matrix.python-version }}
       uses: actions/setup-python@v2
       with:
@@ -34,5 +36,5 @@ jobs:
         if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
     - name: Upload pip package to PyPi
       run: |
-        python setup.py sdist bdist_wheel --version ${{ github.event.inputs.tags }}
+        python setup.py sdist bdist_wheel --version ${{ github.event.inputs.tagVersion }}
         twine upload dist/*  -u __token__ -p ${{ secrets.TEST_PYPI_API_TOKEN }}
