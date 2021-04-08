@@ -20,6 +20,7 @@ setup(
     description='Multi-cloud data scan tool',
     version=version,
     author='Indeni',
+    author_email='engineering@indeni.com',
     url='https://github.com/indeni/dragoneye',
     packages=find_packages(include=[project_name, f'{project_name}.*']),
     keywords=['cloud', 'aws', 'azure', 'scan'],
