@@ -1,7 +1,7 @@
 from typing import Optional
 
 import boto3
-from botocore.exceptions import ClientError
+from botocore.exceptions import ClientError, NoCredentialsError
 
 from dragoneye.cloud_scanner.aws.aws_scan_request import AwsCredentials
 from dragoneye.dragoneye_exception import DragoneyeException
@@ -57,3 +57,19 @@ class AwsSessionFactory:
                 raise DragoneyeException('sts.get_caller_identity failed with InvalidClientTokenId. '
                                          'Likely cause is no AWS credentials are set', ex)
             raise DragoneyeException('Unknown exception when trying to call sts.get_caller_identity: {}'.format(ex), ex)
+
+        iam = session.client("iam")
+        try:
+            iam.get_user(UserName="CloudMapper")
+        except ClientError as ex:
+            if "InvalidClientTokenId" in str(ex):
+                raise DragoneyeException(
+                    "AWS doesn't allow you to make IAM calls from a session without MFA, and the collect command gathers IAM data.  "
+                    "Please use MFA or don't use a session. With aws-vault, specify `--no-session` on your `exec`.", ex)
+            if "NoSuchEntity" in str(ex):
+                # Ignore, we're just testing that our credentials work
+                pass
+            else:
+                raise DragoneyeException('Ensure your credentials are valid', ex)
+        except NoCredentialsError as ex:
+            raise DragoneyeException("No AWS credentials configured.", ex)

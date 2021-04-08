@@ -102,7 +102,7 @@ def add_cloud_account_azure(cloud_account_name: str,
         commands_path=scan_commands_path,
         account_name=cloud_account_name,
         subscription_id=subscription_id,
-        should_clean_before_collect=clean,
+        should_clean_before_scan=clean,
         output_path=output_path)
 
     scan(azure_credentials, azure_collect_settings)
@@ -178,7 +178,7 @@ def aws(cloud_account_name,
         account_name=cloud_account_name,
         default_region=AwsUtils.get_default_region(),
         regions_filter=regions.split(','),
-        should_clean_before_collect=clean,
+        should_clean_before_scan=clean,
         output_path=output_path
     )
     scan(aws_credentials, aws_collect_settings)
