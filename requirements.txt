@@ -1,7 +1,7 @@
 pyjq==2.3.1
 boto3==1.16.13
 pytz==2020.1
-PyYAML==5.3.1
+PyYAML==5.4.1
 config==0.4.2
 psycopg2-binary==2.8.5
 dataclasses-json==0.5.2
