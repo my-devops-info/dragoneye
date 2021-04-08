@@ -6,7 +6,8 @@ with open('requirements.txt') as requirements_file:
     requirements = requirements_file.read().splitlines()
 
 project_name = 'dragoneye'
-
+with open("README.md", "r") as fh:
+    long_description = fh.read()
 version = '0.0.1'
 
 if "--version" in sys.argv:
@@ -18,6 +19,8 @@ if "--version" in sys.argv:
 setup(
     name=project_name,
     description='Multi-cloud data scan tool',
+    long_description=long_description,
+    long_description_content_type="text/markdown",
     version=version,
     author='Indeni',
     author_email='engineering@indeni.com',
