@@ -4,7 +4,7 @@
 name: CD
 
 on:
-  create:
+  push:
     tags:
       - 'v*.*.*'
 
