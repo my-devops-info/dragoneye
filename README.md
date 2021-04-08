@@ -1,3 +1,7 @@
+![Dragoneye](dragoneye_header.png)
+
+![CD](https://github.com/indeni/dragoneye/actions/workflows/cd.yaml/badge.svg) 
+
 # dragoneye
 dragoneye is a Python tool that is used to collect data about a cloud environment using the cloud provider's APIs. It is intended to function as component in other tools who have the need to collect data quickly, with high performance, and within API quotas.
 
