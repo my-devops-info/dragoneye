@@ -17,12 +17,22 @@ if "--version" in sys.argv:
 
 setup(
     name=project_name,
-    version=version,
     description='Multi-cloud data scan tool',
+    version=version,
     author='Indeni',
+    url='https://github.com/indeni/dragoneye',
     packages=find_packages(include=[project_name, f'{project_name}.*']),
+    keywords=['cloud', 'aws', 'azure', 'scan'],
     install_requires=requirements,
     entry_points={
         'console_scripts': [f'{project_name}=dragoneye.scan:scan_cli']
-    }
+    },
+    classifiers=[
+        'Development Status :: 3 - Alpha',
+        'Intended Audience :: Developers',
+        'License :: OSI Approved :: MIT License',
+        'Programming Language :: Python :: 3.7',
+        'Programming Language :: Python :: 3.8',
+        'Programming Language :: Python :: 3.9',
+    ],
 )
