@@ -8,19 +8,19 @@ from concurrent.futures.thread import ThreadPoolExecutor
 import logging
 import json
 import time
-from typing import List, Dict
+from typing import List, Dict, Optional
 
 import urllib.parse
-from botocore.exceptions import ClientError, EndpointConnectionError, NoCredentialsError
+from botocore.exceptions import ClientError, EndpointConnectionError
 from botocore.config import Config
 
 from dragoneye.cloud_scanner.aws.aws_scan_request import AwsCloudScanSettings
 from dragoneye.cloud_scanner.base_cloud_scanner import BaseCloudScanner
-from dragoneye.dragoneye_exception import DragoneyeException
 from dragoneye.utils.misc_utils import get_dynamic_values_from_files, custom_serializer, make_directory, init_directory, load_yaml, snakecase, \
     elapsed_time
 
 MAX_RETRIES = 3
+MAX_WORKER = 10
 
 
 class AwsScanner(BaseCloudScanner):
@@ -28,15 +28,49 @@ class AwsScanner(BaseCloudScanner):
     def __init__(self, session, settings: AwsCloudScanSettings):
         self.session = session
         self.settings = settings
+        # Services that will only be queried in the default region
+        # TODO: Identify these from boto
+        self.universal_services = [
+            "iam",
+            "route53",
+            "route53domains",
+            "s3",
+            "cloudfront",
+            "organizations",
+        ]
+        logging.getLogger("botocore").setLevel(logging.WARN)
 
     @elapsed_time
     def scan(self) -> str:
-        logging.getLogger("botocore").setLevel(logging.WARN)
-        account_name = self.settings.account_name
-        session = self.session
-        account_data_dir = init_directory(self.settings.output_path, account_name, self.settings.clean)
-        summary = []
+        account_data_dir = init_directory(self.settings.output_path, self.settings.account_name, self.settings.clean)
+        region_dict_list = self._create_regions_file_structure(account_data_dir)
 
+        summary = []
+        executor: ThreadPoolExecutor = ThreadPoolExecutor(max_workers=MAX_WORKER)
+
+        for region in region_dict_list:
+            executor.submit(self._collect_region_data, region, account_data_dir, summary)
+        executor.shutdown(True)
+
+        self._print_summary(summary)
+
+        return os.path.abspath(os.path.join(account_data_dir, '..'))
+
+    def _create_regions_file_structure(self, base_path: str):
+        region_list = self._get_region_list()
+
+        with open(f"{base_path}/describe-regions.json", "w+") as file:
+            file.write(json.dumps(region_list, indent=4, sort_keys=True))
+
+        print("* Creating directory for each region name", flush=True)
+        region_dict_list: List[dict] = region_list["Regions"]
+
+        for region in region_dict_list:
+            make_directory(os.path.join(base_path, region.get("RegionName", "Unknown")))
+
+        return region_dict_list
+
+    def _get_region_list(self):
         regions_filter = None
         if len(self.settings.regions_filter) > 0:
             regions_filter = self.settings.regions_filter.lower().split(",")
@@ -45,44 +79,17 @@ class AwsScanner(BaseCloudScanner):
                 regions_filter.append(self.settings.default_region)
 
         print("* Getting region names", flush=True)
-        ec2 = session.client("ec2")
+        ec2 = self.session.client("ec2")
         region_list = ec2.describe_regions()
 
         if regions_filter is not None:
             filtered_regions = [r for r in region_list["Regions"] if r["RegionName"] in regions_filter]
             region_list["Regions"] = filtered_regions
 
-        with open(f"{account_data_dir}/describe-regions.json", "w+") as file:
-            file.write(json.dumps(region_list, indent=4, sort_keys=True))
+        return region_list
 
-        print("* Creating directory for each region name", flush=True)
-        region_dict_list: List[dict] = region_list["Regions"]
-
-        for region in region_dict_list:
-            make_directory(os.path.join(account_data_dir, region.get("RegionName", "Unknown")))
-
-        # Services that will only be queried in the default_
-        # TODO: Identify these from boto
-        universal_services = [
-            "iam",
-            "route53",
-            "route53domains",
-            "s3",
-            "cloudfront",
-            "organizations",
-        ]
-
-        collect_commands = load_yaml(self.settings.commands_path)
-
-        executor: ThreadPoolExecutor = ThreadPoolExecutor(max_workers=10)
-        dependable_commands = [command for command in collect_commands if command.get("Parameters", False)]
-        non_dependable_commands = [command for command in collect_commands if not command.get("Parameters", False)]
-        for region in region_dict_list:
-            executor.submit(self._collect_region_data, region, dependable_commands, non_dependable_commands, session,
-                            universal_services, self.settings, account_data_dir, summary)
-        executor.shutdown(True)
-
-        # Print summary
+    @staticmethod
+    def _print_summary(summary):
         print("--------------------------------------------------------------------")
         failures = []
         for call_summary in summary:
@@ -101,8 +108,6 @@ class AwsScanner(BaseCloudScanner):
                         call_summary["exception"],
                     )
                 )
-            # Ensure errors can be detected
-        return os.path.abspath(os.path.join(account_data_dir, '..'))
 
     @staticmethod
     def _get_identifier_from_parameter(parameter):
@@ -132,7 +137,7 @@ class AwsScanner(BaseCloudScanner):
         return urllib.parse.quote_plus(filename)
 
     @staticmethod
-    def _call_function(outputfile, handler, method_to_call, parameters, check, summary):
+    def _get_and_save_data(output_file, handler, method_to_call, parameters, checks, summary):
         """
         Calls the AWS API function and downloads the data
 
@@ -141,11 +146,9 @@ class AwsScanner(BaseCloudScanner):
         """
         # TODO: Decorate this with rate limiters from
         # https://github.com/Netflix-Skunkworks/cloudaux/blob/master/cloudaux/aws/decorators.py
-
-        data = {}
-        if os.path.isfile(outputfile):
+        if os.path.isfile(output_file):
             # Data already collected, so skip
-            print("  Response already collected at {}".format(outputfile), flush=True)
+            print("  Response already collected at {}".format(output_file), flush=True)
             return
 
         call_summary = {
@@ -154,38 +157,30 @@ class AwsScanner(BaseCloudScanner):
             "parameters": parameters,
         }
 
-        print("  Making call for {}".format(outputfile), flush=True)
+        data = AwsScanner._get_data(output_file, handler, method_to_call, parameters, checks, call_summary)
+        AwsScanner._remove_unused_values(data)
+        AwsScanner._save_results_to_file(output_file, data)
+
+        print("finished call for {}".format(output_file), flush=True)
+        summary.append(call_summary)
+
+    @staticmethod
+    def _get_data(output_file, handler, method_to_call, parameters, checks, call_summary):
+        print("  Making call for {}".format(output_file), flush=True)
         try:
             for retries in range(MAX_RETRIES):
-                if handler.can_paginate(method_to_call):
-                    paginator = handler.get_paginator(method_to_call)
-                    page_iterator = paginator.paginate(**parameters)
-                    for response in page_iterator:
-                        if not data:
-                            data = response
-
-                        else:
-                            print("  ...paginating {}".format(outputfile), flush=True)
-                            for k in data:
-                                if isinstance(data[k], list):
-                                    data[k].extend(response[k])
-                else:
-                    function = getattr(handler, method_to_call)
-                    data = function(**parameters)
-
-                if check is not None:
-                    if data[check[0]["Name"]] == check[0]["Value"]:
-                        continue
-                    if retries == MAX_RETRIES - 1:
-                        raise Exception(
-                            "Check value {} never set as {} in response".format(
-                                check["Name"], check["Value"]
-                            )
+                data = AwsScanner._call_boto_function(output_file, handler, method_to_call, parameters)
+                if not checks or AwsScanner._is_data_passing_check(data, checks):
+                    break
+                elif retries == MAX_RETRIES - 1:
+                    raise Exception(
+                        "One of the following checks has repeatedly failed: {}".format(
+                            ', '.join(f'{check["Name"]}={check["Value"]}' for check in checks)
                         )
+                    )
+                else:
                     print("  Sleeping and retrying")
                     time.sleep(3)
-                else:
-                    break
 
         except ClientError as ex:
             if "NoSuchBucketPolicy" in str(ex):
@@ -259,22 +254,53 @@ class AwsScanner(BaseCloudScanner):
             print("Exception: {}".format(ex), flush=True)
             call_summary["exception"] = ex
 
-        # Remove unused values
+    @staticmethod
+    def _call_boto_function(output_file, handler, method_to_call, parameters):
+        data = None
+        if handler.can_paginate(method_to_call):
+            paginator = handler.get_paginator(method_to_call)
+            page_iterator = paginator.paginate(**parameters)
+            for response in page_iterator:
+                if not data:
+                    data = response
+
+                else:
+                    print("  ...paginating {}".format(output_file), flush=True)
+                    for k in data:
+                        if isinstance(data[k], list):
+                            data[k].extend(response[k])
+        else:
+            function = getattr(handler, method_to_call)
+            data = function(**parameters)
+
+        return data
+
+    @staticmethod
+    def _is_data_passing_check(data: dict, checks: Optional[dict]) -> bool:
+        if checks:
+            for check in checks:
+                if data[check["Name"]] == check["Value"]:
+                    pass
+                else:
+                    return False
+        return True
+
+    @staticmethod
+    def _remove_unused_values(data: dict) -> None:
         if data is not None:
             data.pop("ResponseMetadata", None)
             data.pop("Marker", None)
             data.pop("IsTruncated", None)
 
+    @staticmethod
+    def _save_results_to_file(output_file: str, data: Optional[Dict]) -> None:
         if data is not None:
-            with open(outputfile, "w+") as file:
+            with open(output_file, "w+") as file:
                 file.write(
                     json.dumps(data, indent=4, sort_keys=True, default=custom_serializer)
                 )
 
-        print("finished call for {}".format(outputfile), flush=True)
-        summary.append(call_summary)
-
-    def _collect_command_data(self, region, runner, session, universal_services, arguments, account_dir, summary):
+    def _collect_command_data(self, region, runner, account_dir, summary):
         executor: ThreadPoolExecutor = ThreadPoolExecutor(max_workers=20)
         tasks = []
         region = copy.deepcopy(region)
@@ -283,18 +309,13 @@ class AwsScanner(BaseCloudScanner):
             "* Getting {}:{}:{} info".format(region["RegionName"], runner["Service"], runner["Request"]),
             flush=True,
         )
-        # Only call universal services in default region
-        if runner["Service"] in universal_services:
-            if region["RegionName"] != arguments.default_region:
-                return
-        elif runner["Service"] != 'eks' and region["RegionName"] not in session.get_available_regions(runner["Service"]):
-            print("Skipping region {}, as {} does not exist there"
-                  .format(region["RegionName"], runner["Service"]))
+
+        if not self._should_run_command_on_region(runner, region):
             return
-        handler = session.client(
+        handler = self.session.client(
             runner["Service"], region_name=region["RegionName"],
-            config=Config(retries={'max_attempts': arguments.max_attempts, 'mode': 'standard'},
-                          max_pool_connections=arguments.max_pool_connections)
+            config=Config(retries={'max_attempts': self.settings.max_attempts, 'mode': 'standard'},
+                          max_pool_connections=self.settings.max_pool_connections)
         )
 
         filepath = os.path.join(account_dir, region["RegionName"], f'{runner["Service"]}--{runner["Request"]}')
@@ -320,7 +341,7 @@ class AwsScanner(BaseCloudScanner):
                     continue
                 file_name = urllib.parse.quote_plus('_'.join([f'{k}-{v}' for k, v in param_group.items()]))
                 output_file = f"{filepath}/{file_name}.json"
-                tasks.append(executor.submit(AwsScanner._call_function,
+                tasks.append(executor.submit(AwsScanner._get_and_save_data,
                                              output_file,
                                              handler,
                                              method_to_call,
@@ -330,7 +351,7 @@ class AwsScanner(BaseCloudScanner):
                                              ))
         else:
             filepath = filepath + ".json"
-            tasks.append(executor.submit(AwsScanner._call_function,
+            tasks.append(executor.submit(AwsScanner._get_and_save_data,
                                          filepath,
                                          handler,
                                          method_to_call,
@@ -338,22 +359,25 @@ class AwsScanner(BaseCloudScanner):
                                          runner.get("Check", None),
                                          summary,
                                          ))
-        concurrent.futures.wait(tasks, timeout=arguments.command_timeout, return_when=ALL_COMPLETED)
+        concurrent.futures.wait(tasks, timeout=self.settings.command_timeout, return_when=ALL_COMPLETED)
         timeout_tasks = [task for task in tasks if task.running()]
         if timeout_tasks:
             logging.exception('timeout command {}'.format(runner))
         for timeout_task in timeout_tasks:
             timeout_task.cancel()
 
-    def _collect_region_data(self, region, dependable_commands, non_dependable_commands, session, universal_services, arguments,
-                             account_dir, summary):
+    def _collect_region_data(self, region, account_dir, summary):
+        collect_commands = load_yaml(self.settings.commands_path)
+        dependable_commands = [command for command in collect_commands if command.get("Parameters", False)]
+        non_dependable_commands = [command for command in collect_commands if not command.get("Parameters", False)]
+
         executor: ThreadPoolExecutor = ThreadPoolExecutor(max_workers=20)
         for command in non_dependable_commands:
-            executor.submit(self._collect_command_data, region, command, session, universal_services, arguments, account_dir, summary)
+            executor.submit(self._collect_command_data, region, command, account_dir, summary)
         executor.shutdown(True)
 
         for command in dependable_commands:
-            self._collect_command_data(region, command, session, universal_services, arguments, account_dir, summary)
+            self._collect_command_data(region, command, account_dir, summary)
 
     @staticmethod
     def _get_call_parameters(call_parameters: dict, parameters_def: list) -> List[dict]:
@@ -378,33 +402,6 @@ class AwsScanner(BaseCloudScanner):
                         params.append({keys[0]: value1, keys[1]: value2})
 
         return params
-
-    @staticmethod
-    def _assert_session(session):
-        sts = session.client("sts")
-        try:
-            sts.get_caller_identity()
-        except ClientError as ex:
-            if "InvalidClientTokenId" in str(ex):
-                raise DragoneyeException('sts.get_caller_identity failed with InvalidClientTokenId. '
-                                         'Likely cause is no AWS credentials are set', ex)
-            raise DragoneyeException('Unknown exception when trying to call sts.get_caller_identity: {}'.format(ex), ex)
-
-        iam = session.client("iam")
-        try:
-            iam.get_user(UserName="CloudMapper")
-        except ClientError as ex:
-            if "InvalidClientTokenId" in str(ex):
-                raise DragoneyeException(
-                    "AWS doesn't allow you to make IAM calls from a session without MFA, and the collect command gathers IAM data.  "
-                    "Please use MFA or don't use a session. With aws-vault, specify `--no-session` on your `exec`.", ex)
-            if "NoSuchEntity" in str(ex):
-                # Ignore, we're just testing that our credentials work
-                pass
-            else:
-                raise DragoneyeException('Ensure your credentials are valid', ex)
-        except NoCredentialsError as ex:
-            raise DragoneyeException("No AWS credentials configured.", ex)
 
     @staticmethod
     def _fill_simple_params(param_groups, name, value):
@@ -452,3 +449,27 @@ class AwsScanner(BaseCloudScanner):
                     clone_param_group[name] = cached_value
                     result_param_groups.append(clone_param_group)
         return result_param_groups
+
+    def _should_run_command_on_region(self, runner: dict, region_dict: dict) -> bool:
+        if runner["Service"] in self.universal_services:
+            if region_dict["RegionName"] != self.settings.default_region:
+                return False
+        elif runner["Service"] != 'eks' and region_dict["RegionName"] not in self.session.get_available_regions(runner["Service"]):
+            print("Skipping region {}, as {} does not exist there"
+                  .format(region_dict["RegionName"], runner["Service"]))
+            return False
+        return True
+
+    def _get_parameter_group(self, runner, account_dir, region):
+        param_groups = []
+        parameter_keys = set()
+        for parameter in runner.get("Parameters", []):
+            name = parameter["Name"]
+            value = parameter["Value"]
+            is_dynamic = "|" in value
+            parameter_keys.add(name)
+            if not is_dynamic:
+                param_groups = self._fill_simple_params(param_groups, name, value)
+            else:
+                group = parameter.get("Group", False)
+                param_groups = self._fill_dynamic_params(param_groups, name, value, group, account_dir, region)
