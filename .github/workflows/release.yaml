@@ -12,7 +12,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - name: update docs and bump version
-      GITHUB_TOKEN: ${{ secrets.ALON_PAT_DRAGONEYE }}
+      env:
+        GITHUB_TOKEN: ${{ secrets.ALON_PAT_DRAGONEYE }}
       run: |
         gh release create ${{ github.event.inputs.tagVersion }}  -t ${{ github.event.inputs.tagVersion }} --repo indeni/dragoneye
   release-packadge-to-pipy:
