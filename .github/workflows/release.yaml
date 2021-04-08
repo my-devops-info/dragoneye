@@ -1,0 +1,38 @@
+name: Create a new release
+
+on:
+  workflow_dispatch:
+    inputs:
+      tagVersion:
+        description: 'Tag version'
+        required: true
+
+jobs:
+  create-new-release:
+    runs-on: ubuntu-latest
+    steps:
+    - name: update docs and bump version
+      run: |
+        gh release create ${{ github.event.inputs.tags }}  -t ${{ github.event.inputs.tags }} --repo indeni/dragoneye
+  release-packadge-to-pipy:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: [3.9]
+
+    steps:
+    - uses: actions/checkout@v2
+    - run: git checkout tags/${{ github.event.inputs.tags }} -b ${{ github.event.inputs.tags }}
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v2
+      with:
+        python-version: ${{ matrix.python-version }}
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        python -m pip install wheel twine pytest
+        if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+    - name: Upload pip package to PyPi
+      run: |
+        python setup.py sdist bdist_wheel --version ${{ github.event.inputs.tags }}
+        twine upload dist/*  -u __token__ -p ${{ secrets.TEST_PYPI_API_TOKEN }}
