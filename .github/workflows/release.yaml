@@ -38,4 +38,4 @@ jobs:
     - name: Upload pip package to PyPi
       run: |
         python setup.py sdist bdist_wheel --version ${{ github.event.inputs.tagVersion }}
-        twine upload dist/*  -u __token__ -p ${{ secrets.TEST_PYPI_API_TOKEN }}
+        twine upload dist/*  -u __token__ -p ${{ secrets.PYPI_API_TOKEN }}
