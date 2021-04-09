@@ -25,7 +25,8 @@ jobs:
 
     steps:
     - uses: actions/checkout@v2
-    - run: git checkout tags/${{ github.event.inputs.tagVersion }} -b ${{ github.event.inputs.tagVersion }}
+      with:
+        ref: tags/${{ github.event.inputs.tagVersion }}
     - name: Set up Python ${{ matrix.python-version }}
       uses: actions/setup-python@v2
       with:
