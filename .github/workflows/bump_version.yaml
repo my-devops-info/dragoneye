@@ -14,8 +14,3 @@ jobs:
         GITHUB_TOKEN: ${{ secrets.ALON_PAT_DRAGONEYE }}
         WITH_V: true
         DEFAULT_BUMP: patch
-    - name: update version.py
-      run: |
-        echo "version = '$new_tag'" > 'version.py'
-        git commit --reuse-message=HEAD@{1} version.py
-        git push origin
