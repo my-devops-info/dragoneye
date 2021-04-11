@@ -9,22 +9,22 @@ from dragoneye.cloud_scanner.base_cloud_scanner import CloudCredentials, CloudSc
 from dragoneye.dragoneye_exception import DragoneyeException
 
 
-def scan(credentials: CloudCredentials, collect_settings: CloudScanSettings) -> str:
-    if collect_settings.cloud_provider == CloudProvider.AWS:
-        aws_collect_settings: AwsCloudScanSettings = collect_settings
+def scan(credentials: CloudCredentials, scan_settings: CloudScanSettings) -> str:
+    if scan_settings.cloud_provider == CloudProvider.AWS:
+        aws_scan_settings: AwsCloudScanSettings = scan_settings
         aws_credentials: AwsCredentials = credentials
         session = AwsSessionFactory.get_session(aws_credentials, AwsUtils.get_default_region())
-        cloud_scanner = AwsScanner(session, aws_collect_settings)
+        cloud_scanner = AwsScanner(session, aws_scan_settings)
         output_path = cloud_scanner.scan()
-    elif collect_settings.cloud_provider == CloudProvider.AZURE:
-        azure_collect_settings: AzureCloudScanSettings = collect_settings
+    elif scan_settings.cloud_provider == CloudProvider.AZURE:
+        azure_scan_settings: AzureCloudScanSettings = scan_settings
         azure_credentials: AzureCredentials = credentials
         auth_header = AzureAuthorizer.get_authorization_token(azure_credentials)
-        cloud_scanner = AzureScanner(auth_header, azure_collect_settings)
+        cloud_scanner = AzureScanner(auth_header, azure_scan_settings)
         output_path = cloud_scanner.scan()
     else:
         raise DragoneyeException(f'Unknown cloud provider. '
-                                 f'Got: {collect_settings.cloud_provider}, '
+                                 f'Got: {scan_settings.cloud_provider}, '
                                  f'expected: {CloudProvider.AWS} or {CloudProvider.AZURE}')
     return output_path
 

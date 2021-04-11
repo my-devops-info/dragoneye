@@ -49,7 +49,7 @@ class AwsScanner(BaseCloudScanner):
         executor: ThreadPoolExecutor = ThreadPoolExecutor(max_workers=MAX_WORKER)
 
         for region in region_dict_list:
-            executor.submit(self._collect_region_data, region, account_data_dir, summary)
+            executor.submit(self._scan_region_data, region, account_data_dir, summary)
         executor.shutdown(True)
 
         self._print_summary(summary)
@@ -147,8 +147,8 @@ class AwsScanner(BaseCloudScanner):
         # TODO: Decorate this with rate limiters from
         # https://github.com/Netflix-Skunkworks/cloudaux/blob/master/cloudaux/aws/decorators.py
         if os.path.isfile(output_file):
-            # Data already collected, so skip
-            print("  Response already collected at {}".format(output_file), flush=True)
+            # Data already scanned, so skip
+            print("  Response already present at {}".format(output_file), flush=True)
             return
 
         call_summary = {
@@ -300,7 +300,7 @@ class AwsScanner(BaseCloudScanner):
                     json.dumps(data, indent=4, sort_keys=True, default=custom_serializer)
                 )
 
-    def _collect_command_data(self, region, runner, account_dir, summary):
+    def _run_scan_commands(self, region, runner, account_dir, summary):
         executor: ThreadPoolExecutor = ThreadPoolExecutor(max_workers=20)
         tasks = []
         region = copy.deepcopy(region)
@@ -356,18 +356,18 @@ class AwsScanner(BaseCloudScanner):
         for timeout_task in timeout_tasks:
             timeout_task.cancel()
 
-    def _collect_region_data(self, region, account_dir, summary):
-        collect_commands = load_yaml(self.settings.commands_path)
-        dependable_commands = [command for command in collect_commands if command.get("Parameters", False)]
-        non_dependable_commands = [command for command in collect_commands if not command.get("Parameters", False)]
+    def _scan_region_data(self, region, account_dir, summary):
+        scan_commands = load_yaml(self.settings.commands_path)
+        dependable_commands = [command for command in scan_commands if command.get("Parameters", False)]
+        non_dependable_commands = [command for command in scan_commands if not command.get("Parameters", False)]
 
         executor: ThreadPoolExecutor = ThreadPoolExecutor(max_workers=20)
         for command in non_dependable_commands:
-            executor.submit(self._collect_command_data, region, command, account_dir, summary)
+            executor.submit(self._run_scan_commands, region, command, account_dir, summary)
         executor.shutdown(True)
 
         for command in dependable_commands:
-            self._collect_command_data(region, command, account_dir, summary)
+            self._run_scan_commands(region, command, account_dir, summary)
 
     @staticmethod
     def _get_call_parameters(call_parameters: dict, parameters_def: list) -> List[dict]:

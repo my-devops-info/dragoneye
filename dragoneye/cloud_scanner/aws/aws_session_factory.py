@@ -64,7 +64,7 @@ class AwsSessionFactory:
         except ClientError as ex:
             if "InvalidClientTokenId" in str(ex):
                 raise DragoneyeException(
-                    "AWS doesn't allow you to make IAM calls from a session without MFA, and the collect command gathers IAM data.  "
+                    "AWS doesn't allow you to make IAM calls from a session without MFA, and the scan command gathers IAM data.  "
                     "Please use MFA or don't use a session. With aws-vault, specify `--no-session` on your `exec`.", ex)
             if "NoSuchEntity" in str(ex):
                 # Ignore, we're just testing that our credentials work

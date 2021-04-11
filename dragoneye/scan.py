@@ -87,7 +87,7 @@ def scan_cli():
               is_flag=True,
               default=True)
 @click.option('--output-path',
-              help='The path in which the collect results will be saved on. Defaults to current working directory.',
+              help='The path in which the scan results will be saved on. Defaults to current working directory.',
               type=click.STRING,
               default=os.getcwd())
 def add_cloud_account_azure(cloud_account_name: str,
@@ -98,14 +98,14 @@ def add_cloud_account_azure(cloud_account_name: str,
         client_id=client_id,
         client_secret=client_secret)
 
-    azure_collect_settings = AzureCloudScanSettings(
+    azure_scan_settings = AzureCloudScanSettings(
         commands_path=scan_commands_path,
         account_name=cloud_account_name,
         subscription_id=subscription_id,
         should_clean_before_scan=clean,
         output_path=output_path)
 
-    scan(azure_credentials, azure_collect_settings)
+    scan(azure_credentials, azure_scan_settings)
 
 
 @scan_cli.command(name='aws',
@@ -161,7 +161,7 @@ def add_cloud_account_azure(cloud_account_name: str,
               is_flag=True,
               default=True)
 @click.option('--output-path',
-              help='The path in which the collect results will be saved on. Defaults to current working directory.',
+              help='The path in which the scan results will be saved on. Defaults to current working directory.',
               type=click.STRING,
               default=os.getcwd())
 def aws(cloud_account_name,
@@ -173,7 +173,7 @@ def aws(cloud_account_name,
     aws_credentials = AwsCredentials(role_name, external_id, account_id,
                                      aws_access_key_id, aws_secret_access_key,
                                      profile)
-    aws_collect_settings = AwsCloudScanSettings(
+    aws_scan_settings = AwsCloudScanSettings(
         commands_path=scan_commands_path,
         account_name=cloud_account_name,
         default_region=AwsUtils.get_default_region(),
@@ -181,7 +181,7 @@ def aws(cloud_account_name,
         should_clean_before_scan=clean,
         output_path=output_path
     )
-    scan(aws_credentials, aws_collect_settings)
+    scan(aws_credentials, aws_scan_settings)
 
 
 if __name__ == '__main__':
