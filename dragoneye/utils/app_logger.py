@@ -2,9 +2,9 @@ import logging.handlers
 import os
 
 
-logger = logging.getLogger('dragoneye')
 INITIALIZED = False
 if not INITIALIZED:
+    logger = logging.getLogger('dragoneye')
     logger.setLevel(logging.INFO)
     logger_file = os.path.join(os.getcwd(), 'dragoneye.log')
     rotate_file = os.path.isfile(logger_file)

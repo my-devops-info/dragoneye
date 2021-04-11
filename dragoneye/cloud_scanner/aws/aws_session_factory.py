@@ -3,6 +3,7 @@ from typing import Optional
 import boto3
 from botocore.exceptions import ClientError, NoCredentialsError
 
+from dragoneye.utils.app_logger import logger
 from dragoneye.cloud_scanner.aws.aws_scan_request import AwsCredentials
 from dragoneye.dragoneye_exception import DragoneyeException
 
@@ -33,8 +34,8 @@ class AwsSessionFactory:
         role_arn = "arn:aws:iam::" + account_id + ":role/" + role_name
         role_session_name = "DragoneyeSession"
         # TODO: replace with logger
-        print('will try to assume role using ARN: {} and external id {} for account {}'
-              .format(role_arn, external_id, account_id))
+        logger.info('will try to assume role using ARN: {} and external id {} for account {}'
+                    .format(role_arn, external_id, account_id))
         client = boto3.client('sts')
         response = client.assume_role(RoleArn=role_arn,
                                       RoleSessionName=role_session_name,
