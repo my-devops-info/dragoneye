@@ -29,7 +29,7 @@ setup(
     keywords=['cloud', 'aws', 'azure', 'scan'],
     install_requires=requirements,
     entry_points={
-        'console_scripts': [f'{project_name}=dragoneye.scan:scan_cli']
+        'console_scripts': [f'{project_name}=dragoneye.scan:safe_cli_entry_point']
     },
     classifiers=[
         'Development Status :: 3 - Alpha',

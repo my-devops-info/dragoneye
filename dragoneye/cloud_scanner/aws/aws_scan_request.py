@@ -1,25 +1,7 @@
 import os
 from typing import List
 
-from dragoneye.cloud_scanner.base_cloud_scanner import CloudCredentials, CloudScanSettings, CloudProvider
-
-
-class AwsCredentials(CloudCredentials):
-    def __init__(self,
-                 account_id: str,
-                 external_id: str,
-                 role_name: str,
-                 aws_access_key_id: str,
-                 aws_secret_access_key: str,
-                 profile_name: str,
-                 session_duration: int = 3600):
-        self.external_id: str = external_id
-        self.role_name: str = role_name
-        self.account_id: str = account_id
-        self.aws_access_key_id: str = aws_access_key_id
-        self.aws_secret_access_key: str = aws_secret_access_key
-        self.profile_name: str = profile_name
-        self.session_duration: int = session_duration
+from dragoneye.cloud_scanner.base_cloud_scanner import CloudScanSettings, CloudProvider
 
 
 class AwsCloudScanSettings(CloudScanSettings):

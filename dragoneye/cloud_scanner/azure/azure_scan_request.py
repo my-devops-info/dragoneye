@@ -1,17 +1,6 @@
 import os
 
-from dragoneye.cloud_scanner.base_cloud_scanner import CloudCredentials, CloudScanSettings, CloudProvider
-
-
-class AzureCredentials(CloudCredentials):
-    def __init__(self,
-                 tenant_id: str,
-                 client_id: str,
-                 client_secret: str
-                 ):
-        self.tenant_id: str = tenant_id
-        self.client_id: str = client_id
-        self.client_secret: str = client_secret
+from dragoneye.cloud_scanner.base_cloud_scanner import CloudScanSettings, CloudProvider
 
 
 class AzureCloudScanSettings(CloudScanSettings):

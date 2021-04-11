@@ -22,41 +22,47 @@ pip install .
 ## Programmatic Usage
 Create an instance of one of the CollectRequest classes, such as AwsAccessKeyCollectRequest, AwsAssumeRoleCollectRequest, AzureCollectRequest and call the `collect` function. For example:
 ```
-from dragoneye import collect, AwsAccessKeyCollectRequest, AzureCollectRequest, AwsAssumeRoleCollectRequest
+from dragoneye import AwsScanner, AwsCloudScanSettings, AzureScanner, AzureCloudScanSettings, AwsSessionFactory, AzureAuthorizer
 
-aws_access_key_request = AwsAccessKeyCollectRequest(
-   account_name='...',
-   account_id='...',
-   regions_filter=['us-east-1'],)
 
-aws_assume_role_request = AwsAssumeRoleCollectRequest(
-   account_id='...',
-   account_name='...',
-   external_id='...',
-   role_name='...')
-
-azure_collect_request = AzureCollectRequest(
-   account_name='...',
-   tenant_id='...',
-   subscription_id='...',
-   client_id='...',
-   client_secret='...',
-   clean=True
+aws_settings = AwsCloudScanSettings(
+    #commands_path='/Users/dev/python/dragoneye/aws_commands_example.yaml',
+    commands_path='/Users/dev/python/dragoneye/test.yaml',
+    account_name='default', default_region='us-east-1', regions_filter=['us-east-1']
 )
 
-collect(azure_collect_request)  # Returns the path to the directory that holds the results
+azure_settings = AzureCloudScanSettings(
+    commands_path='/Users/dev/python/dragoneye/azure_commands_example.yaml',
+    subscription_id='...',
+    account_name='my-account'
+)
+
+### Aws ###
+# Profile / Auth-chain
+
+session = AwsSessionFactory.get_session(profile_name=None)  # Raises exception if authentication is unsuccessful
+AwsScanner(session, aws_settings).scan()
+# Assume Role
+session = AwsSessionFactory.get_session_using_assume_role(external_id='...',
+                                                          role_arn="...",
+                                                          region='us-east-1')
+aws_scan_output_directory = AwsScanner(session, aws_settings).scan()
+
+### Azure ###
+token = AzureAuthorizer.get_authorization_token(
+    tenant_id='...',
+    client_id='...',
+    client_secret='...'
+)  # Raises exception if authentication is unsuccessful
+azure_scan_output_directory = AzureScanner(token, azure_settings).scan()
+
 ```
 
 ## CLI usage
 
-### For collecting data from AWS with an AccessKey
+### For collecting data from AWS
 ```
-dragoneye aws access-key [options]
-```
-
-### For collecting data from AWS with AssumeRole
-```
-dragoneye aws assume-role [options]
+dragoneye aws [options]
 ```
 
 ### For collecting data from Azure with a client secret

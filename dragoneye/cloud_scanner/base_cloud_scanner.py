@@ -7,10 +7,6 @@ class CloudProvider(str, Enum):
     AZURE = 'azure'
 
 
-class CloudCredentials:
-    pass
-
-
 class CloudScanSettings:
     def __init__(self,
                  cloud_provider: CloudProvider,
