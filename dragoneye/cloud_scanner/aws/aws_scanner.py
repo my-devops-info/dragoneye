@@ -256,7 +256,7 @@ class AwsScanner(BaseCloudScanner):
 
     @staticmethod
     def _call_boto_function(output_file, handler, method_to_call, parameters):
-        data = None
+        data = {}
         if handler.can_paginate(method_to_call):
             paginator = handler.get_paginator(method_to_call)
             page_iterator = paginator.paginate(**parameters)
@@ -321,18 +321,8 @@ class AwsScanner(BaseCloudScanner):
         filepath = os.path.join(account_dir, region["RegionName"], f'{runner["Service"]}--{runner["Request"]}')
 
         method_to_call = snakecase(runner["Request"])
-        param_groups = []
         parameter_keys = set()
-        for parameter in runner.get("Parameters", []):
-            name = parameter["Name"]
-            value = parameter["Value"]
-            is_dynamic = "|" in value
-            parameter_keys.add(name)
-            if not is_dynamic:
-                param_groups = self._fill_simple_params(param_groups, name, value)
-            else:
-                group = parameter.get("Group", False)
-                param_groups = self._fill_dynamic_params(param_groups, name, value, group, account_dir, region)
+        param_groups = self._get_parameter_group(runner, account_dir, region, parameter_keys)
 
         if runner.get("Parameters"):
             make_directory(filepath)
@@ -460,9 +450,8 @@ class AwsScanner(BaseCloudScanner):
             return False
         return True
 
-    def _get_parameter_group(self, runner, account_dir, region):
+    def _get_parameter_group(self, runner, account_dir, region, parameter_keys: set):
         param_groups = []
-        parameter_keys = set()
         for parameter in runner.get("Parameters", []):
             name = parameter["Name"]
             value = parameter["Value"]
@@ -473,3 +462,4 @@ class AwsScanner(BaseCloudScanner):
             else:
                 group = parameter.get("Group", False)
                 param_groups = self._fill_dynamic_params(param_groups, name, value, group, account_dir, region)
+        return param_groups
