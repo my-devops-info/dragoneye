@@ -16,6 +16,7 @@ from botocore.config import Config
 
 from dragoneye.cloud_scanner.aws.aws_scan_request import AwsCloudScanSettings
 from dragoneye.cloud_scanner.base_cloud_scanner import BaseCloudScanner
+from dragoneye.utils.app_logger import logger
 from dragoneye.utils.misc_utils import get_dynamic_values_from_files, custom_serializer, make_directory, init_directory, load_yaml, snakecase, \
     elapsed_time
 
@@ -62,7 +63,7 @@ class AwsScanner(BaseCloudScanner):
         with open(f"{base_path}/describe-regions.json", "w+") as file:
             file.write(json.dumps(region_list, indent=4, sort_keys=True))
 
-        print("* Creating directory for each region name", flush=True)
+        logger.info("* Creating directory for each region name")
         region_dict_list: List[dict] = region_list["Regions"]
 
         for region in region_dict_list:
@@ -78,7 +79,7 @@ class AwsScanner(BaseCloudScanner):
             if self.settings.default_region not in regions_filter:
                 regions_filter.append(self.settings.default_region)
 
-        print("* Getting region names", flush=True)
+        logger.info("* Getting region names")
         ec2 = self.session.client("ec2")
         region_list = ec2.describe_regions()
 
@@ -90,17 +91,17 @@ class AwsScanner(BaseCloudScanner):
 
     @staticmethod
     def _print_summary(summary):
-        print("--------------------------------------------------------------------")
+        logger.info("--------------------------------------------------------------------")
         failures = []
         for call_summary in summary:
             if "exception" in call_summary:
                 failures.append(call_summary)
 
-        print("Summary: {} APIs called. {} errors".format(len(summary), len(failures)))
+        logger.info("Summary: {} APIs called. {} errors".format(len(summary), len(failures)))
         if len(failures) > 0:
-            print("Failures:")
+            logger.warning("Failures:")
             for call_summary in failures:
-                print(
+                logger.warning(
                     "  {}.{}({}): {}".format(
                         call_summary["service"],
                         call_summary["action"],
@@ -148,7 +149,7 @@ class AwsScanner(BaseCloudScanner):
         # https://github.com/Netflix-Skunkworks/cloudaux/blob/master/cloudaux/aws/decorators.py
         if os.path.isfile(output_file):
             # Data already scanned, so skip
-            print("  Response already present at {}".format(output_file), flush=True)
+            logger.warning("  Response already present at {}".format(output_file))
             return
 
         call_summary = {
@@ -161,12 +162,12 @@ class AwsScanner(BaseCloudScanner):
         AwsScanner._remove_unused_values(data)
         AwsScanner._save_results_to_file(output_file, data)
 
-        print("finished call for {}".format(output_file), flush=True)
+        logger.info("finished call for {}".format(output_file))
         summary.append(call_summary)
 
     @staticmethod
     def _get_data(output_file, handler, method_to_call, parameters, checks, call_summary):
-        print("  Making call for {}".format(output_file), flush=True)
+        logger.info("  Making call for {}".format(output_file))
         try:
             for retries in range(MAX_RETRIES):
                 data = AwsScanner._call_boto_function(output_file, handler, method_to_call, parameters)
@@ -179,79 +180,79 @@ class AwsScanner(BaseCloudScanner):
                         )
                     )
                 else:
-                    print("  Sleeping and retrying")
+                    logger.info("  Sleeping and retrying")
                     time.sleep(3)
 
         except ClientError as ex:
             if "NoSuchBucketPolicy" in str(ex):
                 # This error occurs when you try to get the bucket policy for a bucket that has no bucket policy, so this can be ignored.
-                print("  - No bucket policy")
+                logger.warning("  - No bucket policy")
             elif "NoSuchPublicAccessBlockConfiguration" in str(ex):
                 # This error occurs when you try to get the account Public Access Block policy for an account that has none, so this can be ignored.
-                print("  - No public access block set")
+                logger.warning("  - No public access block set")
             elif (
                     "ServerSideEncryptionConfigurationNotFoundError" in str(ex)
                     and call_summary["service"] == "s3"
                     and call_summary["action"] == "get_bucket_encryption"
             ):
-                print("  - No encryption set")
+                logger.warning("  - No encryption set")
             elif (
                     "NoSuchEntity" in str(ex)
                     and call_summary["action"] == "get_account_password_policy"
             ):
-                print("  - No password policy set")
+                logger.warning("  - No password policy set")
             elif (
                     "AccessDeniedException" in str(ex)
                     and call_summary["service"] == "organizations"
                     and call_summary["action"] == "list_accounts"
             ):
-                print("  - Denied, which likely means this is not the organization root")
+                logger.warning("  - Denied, which likely means this is not the organization root")
             elif (
                     "RepositoryPolicyNotFoundException" in str(ex)
                     and call_summary["service"] == "ecr"
                     and call_summary["action"] == "get_repository_policy"
             ):
-                print("  - No policy exists")
+                logger.warning("  - No policy exists")
             elif (
                     "ResourceNotFoundException" in str(ex)
                     and call_summary["service"] == "lambda"
                     and call_summary["action"] == "get_policy"
             ):
-                print("  - No policy exists")
+                logger.warning("  - No policy exists")
             elif (
                     "AccessDeniedException" in str(ex)
                     and call_summary["service"] == "kms"
                     and call_summary["action"] == "list_key_policies"
             ):
-                print("  - Denied, which should mean this KMS has restricted access")
+                logger.warning("  - Denied, which should mean this KMS has restricted access")
             elif (
                     "AccessDeniedException" in str(ex)
                     and call_summary["service"] == "kms"
                     and call_summary["action"] == "list_grants"
             ):
-                print("  - Denied, which should mean this KMS has restricted access")
+                logger.warning("  - Denied, which should mean this KMS has restricted access")
             elif (
                     "AccessDeniedException" in str(ex)
                     and call_summary["service"] == "kms"
                     and call_summary["action"] == "get_key_policy"
             ):
-                print("  - Denied, which should mean this KMS has restricted access")
+                logger.warning("  - Denied, which should mean this KMS has restricted access")
             elif (
                     "AccessDeniedException" in str(ex)
                     and call_summary["service"] == "kms"
                     and call_summary["action"] == "get_key_rotation_status"
             ):
-                print("  - Denied, which should mean this KMS has restricted access")
+                logger.warning("  - Denied, which should mean this KMS has restricted access")
             elif "AWSOrganizationsNotInUseException" in str(ex):
-                print(' - Your account is not a member of an organization.')
+                logger.warning(' - Your account is not a member of an organization.')
             else:
-                print(f"ClientError {retries}: {ex}", flush=True)
+                logger.warning(f"ClientError {retries}: {ex}")
                 call_summary["exception"] = ex
         except EndpointConnectionError as ex:
-            print("EndpointConnectionError: {}".format(ex), flush=True)
+            logger.warning("EndpointConnectionError: {}".format(ex))
             call_summary["exception"] = ex
         except Exception as ex:
-            print("Exception: {}".format(ex), flush=True)
+            logger.warning("Exception: {}".format(ex))
             call_summary["exception"] = ex
 
     @staticmethod
@@ -265,7 +266,7 @@ class AwsScanner(BaseCloudScanner):
                     data = response
 
                 else:
-                    print("  ...paginating {}".format(output_file), flush=True)
+                    logger.info("  ...paginating {}".format(output_file))
                     for k in data:
                         if isinstance(data[k], list):
                             data[k].extend(response[k])
@@ -305,9 +306,8 @@ class AwsScanner(BaseCloudScanner):
         tasks = []
         region = copy.deepcopy(region)
         runner = copy.deepcopy(runner)
-        print(
-            "* Getting {}:{}:{} info".format(region["RegionName"], runner["Service"], runner["Request"]),
-            flush=True,
+        logger.info(
+            "* Getting {}:{}:{} info".format(region["RegionName"], runner["Service"], runner["Request"])
         )
 
         if not self._should_run_command_on_region(runner, region):
@@ -445,8 +445,8 @@ class AwsScanner(BaseCloudScanner):
             if region_dict["RegionName"] != self.settings.default_region:
                 return False
         elif runner["Service"] != 'eks' and region_dict["RegionName"] not in self.session.get_available_regions(runner["Service"]):
-            print("Skipping region {}, as {} does not exist there"
-                  .format(region_dict["RegionName"], runner["Service"]))
+            logger.info("Skipping region {}, as {} does not exist there"
+                        .format(region_dict["RegionName"], runner["Service"]))
             return False
         return True
 
