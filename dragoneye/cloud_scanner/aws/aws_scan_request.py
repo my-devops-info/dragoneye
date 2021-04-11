@@ -33,8 +33,8 @@ class AwsCloudScanSettings(CloudScanSettings):
                  max_pool_connections: int = 50,
                  command_timeout: int = 600,
                  output_path: str = os.getcwd(),
-                 should_clean_before_collect: bool = True):
-        super().__init__(CloudProvider.AWS, account_name, should_clean_before_collect, output_path, commands_path)
+                 should_clean_before_scan: bool = True):
+        super().__init__(CloudProvider.AWS, account_name, should_clean_before_scan, output_path, commands_path)
         self.regions_filter: str = ','.join(regions_filter) if regions_filter else ''
         self.default_region = default_region
         self.max_attempts: int = max_attempts

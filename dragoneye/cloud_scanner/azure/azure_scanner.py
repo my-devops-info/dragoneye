@@ -29,27 +29,27 @@ class AzureScanner(BaseCloudScanner):
         }
 
         account_data_dir = init_directory(settings.output_path, account_name, settings.clean)
-        collect_commands = load_yaml(settings.commands_path)
+        scan_commands = load_yaml(settings.commands_path)
         resource_groups = self._get_resource_groups(headers, subscription_id, account_data_dir)
 
-        dependable_commands = [command for command in collect_commands if command.get("Parameters", False)]
-        non_dependable_commands = [command for command in collect_commands if not command.get("Parameters", False)]
+        dependable_commands = [command for command in scan_commands if command.get("Parameters", False)]
+        non_dependable_commands = [command for command in scan_commands if not command.get("Parameters", False)]
 
         executor: ThreadPoolExecutor = ThreadPoolExecutor(max_workers=20)
         for non_dependable_command in non_dependable_commands:
-            executor.submit(self._execute_collect_commands, non_dependable_command, subscription_id, headers, account_data_dir, resource_groups)
+            executor.submit(self._execute_scan_commands, non_dependable_command, subscription_id, headers, account_data_dir, resource_groups)
         executor.shutdown(True)
 
         for dependable_command in dependable_commands:
-            self._execute_collect_commands(dependable_command, subscription_id, headers, account_data_dir, resource_groups)
+            self._execute_scan_commands(dependable_command, subscription_id, headers, account_data_dir, resource_groups)
 
         return os.path.abspath(os.path.join(account_data_dir, '..'))
 
-    def _execute_collect_commands(self, collect_command: dict, subscription_id: str, headers: dict,
-                                  account_data_dir: str, resource_groups: List[str]) -> None:
-        request = collect_command['Request']
-        name = collect_command['Name']
-        parameters = collect_command.get('Parameters', [])
+    def _execute_scan_commands(self, scan_command: dict, subscription_id: str, headers: dict,
+                               account_data_dir: str, resource_groups: List[str]) -> None:
+        request = scan_command['Request']
+        name = scan_command['Name']
+        parameters = scan_command.get('Parameters', [])
         url = request.replace('{subscriptionId}', subscription_id)
 
         results = AzureScanner._get_results(url, headers, parameters, account_data_dir, resource_groups)
