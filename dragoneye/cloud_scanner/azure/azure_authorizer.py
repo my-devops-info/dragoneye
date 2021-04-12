@@ -2,19 +2,18 @@ import json
 
 import requests
 
-from dragoneye.cloud_scanner.azure.azure_scan_request import AzureCredentials
 from dragoneye.dragoneye_exception import DragoneyeException
 
 
 class AzureAuthorizer:
     @staticmethod
-    def get_authorization_token(credentials: AzureCredentials) -> str:
+    def get_authorization_token(tenant_id: str, client_id: str, client_secret: str) -> str:
         response = requests.post(
-            url=f'https://login.microsoftonline.com/{credentials.tenant_id}/oauth2/token',
+            url=f'https://login.microsoftonline.com/{tenant_id}/oauth2/token',
             data={
                 'grant_type': 'client_credentials',
-                'client_id': credentials.client_id,
-                'client_secret': credentials.client_secret,
+                'client_id': client_id,
+                'client_secret': client_secret,
                 'resource': 'https://management.azure.com/'
             }
         )

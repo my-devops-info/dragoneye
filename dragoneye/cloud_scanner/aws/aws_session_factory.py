@@ -1,41 +1,28 @@
 from typing import Optional
 
 import boto3
-from botocore.exceptions import ClientError, NoCredentialsError
+from botocore.exceptions import ClientError
 
 from dragoneye.utils.app_logger import logger
-from dragoneye.cloud_scanner.aws.aws_scan_request import AwsCredentials
 from dragoneye.dragoneye_exception import DragoneyeException
 
 
 class AwsSessionFactory:
     @staticmethod
-    def get_session(credentials: AwsCredentials,
-                    region: Optional[str] = None):
-        if credentials.account_id and credentials.role_name and credentials.external_id:
-            # use assume rule
-            session = AwsSessionFactory._get_session_using_assume_role(credentials.account_id,
-                                                                       credentials.role_name,
-                                                                       credentials.external_id,
-                                                                       credentials.session_duration,
-                                                                       region)
-        else:
-            session_data = {}
-            if region:
-                session_data["region_name"] = region
-            if credentials.profile_name:
-                session_data["profile_name"] = credentials.profile_name
-            session = boto3.Session(**session_data)
+    def get_session(profile_name: Optional[str] = None, region: Optional[str] = None):
+        session_data = {}
+        if region:
+            session_data["region_name"] = region
+        if profile_name:
+            session_data["profile_name"] = profile_name
+        session = boto3.Session(**session_data)
         AwsSessionFactory.test_connectivity(session)
         return session
 
     @staticmethod
-    def _get_session_using_assume_role(account_id, role_name, external_id, session_duration, region):
-        role_arn = "arn:aws:iam::" + account_id + ":role/" + role_name
+    def get_session_using_assume_role(role_arn, external_id, region, session_duration=3600):
         role_session_name = "DragoneyeSession"
-        # TODO: replace with logger
-        logger.info('will try to assume role using ARN: {} and external id {} for account {}'
-                    .format(role_arn, external_id, account_id))
+        logger.info('will try to assume role using ARN: {} and external id {}'.format(role_arn, external_id))
         client = boto3.client('sts')
         response = client.assume_role(RoleArn=role_arn,
                                       RoleSessionName=role_session_name,
@@ -58,19 +45,3 @@ class AwsSessionFactory:
                 raise DragoneyeException('sts.get_caller_identity failed with InvalidClientTokenId. '
                                          'Likely cause is no AWS credentials are set', ex)
             raise DragoneyeException('Unknown exception when trying to call sts.get_caller_identity: {}'.format(ex), ex)
-
-        iam = session.client("iam")
-        try:
-            iam.get_user(UserName="CloudMapper")
-        except ClientError as ex:
-            if "InvalidClientTokenId" in str(ex):
-                raise DragoneyeException(
-                    "AWS doesn't allow you to make IAM calls from a session without MFA, and the scan command gathers IAM data.  "
-                    "Please use MFA or don't use a session. With aws-vault, specify `--no-session` on your `exec`.", ex)
-            if "NoSuchEntity" in str(ex):
-                # Ignore, we're just testing that our credentials work
-                pass
-            else:
-                raise DragoneyeException('Ensure your credentials are valid', ex)
-        except NoCredentialsError as ex:
-            raise DragoneyeException("No AWS credentials configured.", ex)
