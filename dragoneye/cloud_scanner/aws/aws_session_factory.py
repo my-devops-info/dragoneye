@@ -22,7 +22,6 @@ class AwsSessionFactory:
     @staticmethod
     def get_session_using_assume_role(role_arn, external_id, region, session_duration=3600):
         role_session_name = "DragoneyeSession"
-        # TODO: replace with logger
         logger.info('will try to assume role using ARN: {} and external id {}'.format(role_arn, external_id))
         client = boto3.client('sts')
         response = client.assume_role(RoleArn=role_arn,
