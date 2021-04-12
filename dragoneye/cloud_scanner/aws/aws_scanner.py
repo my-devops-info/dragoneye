@@ -41,7 +41,7 @@ class AwsScanner(BaseCloudScanner):
         ]
         logging.getLogger("botocore").setLevel(logging.WARN)
 
-    @elapsed_time
+    @elapsed_time('Scanning AWS live environment took {} seconds')
     def scan(self) -> str:
         account_data_dir = init_directory(self.settings.output_path, self.settings.account_name, self.settings.clean)
         region_dict_list = self._create_regions_file_structure(account_data_dir)

@@ -13,14 +13,17 @@ import yaml
 from dragoneye.utils.app_logger import logger
 
 
-def elapsed_time(function):
-    def elapsed_wrapper(*arguments):
-        start = datetime.now()
-        return_val = function(*arguments)
-        end = datetime.now()
-        logger.info(f'The function `{function.__name__}` took {(end - start).total_seconds()} seconds')
-        return return_val
-    return elapsed_wrapper
+def elapsed_time(message=None):
+    def _elapsed_time(function):
+        def elapsed_wrapper(*arguments):
+            start = datetime.now()
+            return_val = function(*arguments)
+            end = datetime.now()
+            _message = message or 'The function ' + f'`{function.__name__}`' + 'took {} seconds'
+            logger.info(_message.format((end - start).total_seconds()))
+            return return_val
+        return elapsed_wrapper
+    return _elapsed_time
 
 
 def make_directory(path) -> None:
