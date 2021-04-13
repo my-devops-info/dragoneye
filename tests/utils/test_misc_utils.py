@@ -1,3 +1,4 @@
+import os
 import unittest
 from datetime import datetime
 from unittest.mock import patch
@@ -6,6 +7,8 @@ from dragoneye.utils.misc_utils import snakecase, elapsed_time, get_dynamic_valu
 
 
 class TestMisUtils(unittest.TestCase):
+    resource_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'resources')
+    
     def test_snakecase(self):
         # Arrange
         text = 'a-String-WITH-DasH'
@@ -34,8 +37,8 @@ class TestMisUtils(unittest.TestCase):
 
     def test_get_dynamic_values_from_files_ok(self):
         # Arrange / Act
-        names = get_dynamic_values_from_files('data.json|.value[].name', './resources')
-        multival = get_dynamic_values_from_files('data.json|.value[].multival[]', './resources')
+        names = get_dynamic_values_from_files('data.json|.value[].name', self.resource_path)
+        multival = get_dynamic_values_from_files('data.json|.value[].multival[]', self.resource_path)
         # Assert
         self.assertListEqual(names, ['first item', 'second item'])
         self.assertListEqual(multival, [1, 2, 3, 11, 22, 33])
@@ -45,7 +48,7 @@ class TestMisUtils(unittest.TestCase):
         self.assertListEqual(names, [])
 
     def test_get_dynamic_values_from_files_non_existing_file(self):
-        names = get_dynamic_values_from_files('nofile.json|.value[].name', './resources')
+        names = get_dynamic_values_from_files('nofile.json|.value[].name', self.resource_path)
         self.assertListEqual(names, [])
 
     def test_custom_serializer_datetime(self):
@@ -70,4 +73,3 @@ class TestMisUtils(unittest.TestCase):
         # Act / Assert
         with self.assertRaises(TypeError):
             custom_serializer(obj)
-
