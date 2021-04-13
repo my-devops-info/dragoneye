@@ -5,6 +5,9 @@ from setuptools import setup, find_packages
 with open('requirements.txt') as requirements_file:
     requirements = requirements_file.read().splitlines()
 
+with open('test-requirements.txt') as test_requirements_file:
+    test_requirements = test_requirements_file.read().splitlines()
+
 project_name = 'dragoneye'
 with open("README.md", "r") as fh:
     long_description = fh.read()
@@ -28,6 +31,7 @@ setup(
     packages=find_packages(include=[project_name, f'{project_name}.*']),
     keywords=['cloud', 'aws', 'azure', 'scan'],
     install_requires=requirements,
+    test_requirements=test_requirements,
     entry_points={
         'console_scripts': [f'{project_name}=dragoneye.scan:safe_cli_entry_point']
     },
