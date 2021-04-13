@@ -172,7 +172,7 @@ class AwsScanner(BaseCloudScanner):
             for retries in range(MAX_RETRIES):
                 data = AwsScanner._call_boto_function(output_file, handler, method_to_call, parameters)
                 if not checks or AwsScanner._is_data_passing_check(data, checks):
-                    break
+                    return data
                 elif retries == MAX_RETRIES - 1:
                     raise Exception(
                         "One of the following checks has repeatedly failed: {}".format(
@@ -318,7 +318,7 @@ class AwsScanner(BaseCloudScanner):
                           max_pool_connections=self.settings.max_pool_connections)
         )
 
-        filepath = os.path.join(account_dir, region["RegionName"], f'{runner["Service"]}--{runner["Request"]}')
+        filepath = os.path.join(account_dir, region["RegionName"], f'{runner["Service"]}-{runner["Request"]}')
 
         method_to_call = snakecase(runner["Request"])
         parameter_keys = set()
