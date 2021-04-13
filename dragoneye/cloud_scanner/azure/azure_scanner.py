@@ -18,7 +18,7 @@ class AzureScanner(BaseCloudScanner):
         self.auth_header = auth_header
         self.settings = settings
 
-    @elapsed_time
+    @elapsed_time('Scanning Azure live environment took {} seconds')
     def scan(self) -> str:
         settings = self.settings
         subscription_id = self.settings.subscription_id
