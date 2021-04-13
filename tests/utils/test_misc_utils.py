@@ -31,9 +31,8 @@ class TestMisUtils(unittest.TestCase):
             # Act
             func_res = my_func(5)
             # Assert
-            print(log_info_mock.call_args)
-            call_args = '\n'.join(str(arg) for arg in log_info_mock.call_args.args)
-            self.assertRegex(call_args, elapsed_time_msg.format('\\w+.*\\b'), f'logger.info was called with {call_args}')
+            call_args = '\n'.join(str(arg) for arg in log_info_mock.call_args)
+            self.assertRegex(call_args, elapsed_time_msg.format('\\w+.*\\b'))
             self.assertEqual(func_res, 6)
 
     def test_get_dynamic_values_from_files_ok(self):
