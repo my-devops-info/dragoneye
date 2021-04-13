@@ -1,5 +1,2 @@
-# This request has 2 parameters: subscriptionId and resourceGroupName.
-# subscriptionId is ~always~ filled with the subscription id given as parameter to `collect`
-# resourceGroupName parameter is implicitly filled with the resource groups under this subscription, because it is not given as a parameter.
 - Request: https://management.azure.com/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Compute/virtualMachines?api-version=2020-12-01
   Name: virtual-machines
