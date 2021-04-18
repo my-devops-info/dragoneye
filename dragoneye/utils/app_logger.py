@@ -5,7 +5,6 @@ INITIALIZED = False
 if not INITIALIZED:
     logger = logging.getLogger('dragoneye')
     logger.setLevel(logging.INFO)
-    logger.addHandler(logging.StreamHandler())
 
     INITIALIZED = True
 
