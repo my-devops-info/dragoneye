@@ -33,6 +33,7 @@ class AwsSessionFactory:
                                 aws_secret_access_key=credentials['SecretAccessKey'],
                                 aws_session_token=credentials['SessionToken'],
                                 region_name=region)
+        AwsSessionFactory.test_connectivity(session)
         return session
 
     @staticmethod
