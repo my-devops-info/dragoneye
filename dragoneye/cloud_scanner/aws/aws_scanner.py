@@ -396,13 +396,23 @@ class AwsScanner(BaseCloudScanner):
         return params
 
     @staticmethod
-    def _fill_simple_params(param_groups, name, value):
+    def _fill_simple_params(param_groups, name, value, parameter: dict):
         if not param_groups:
             param_groups = [{name: value}]
             return param_groups
         else:
+            additional_param_group: List[dict] = []
             for param_group in param_groups:
-                param_group[name] = value
+                if "Values" in parameter:
+                    for val in value:
+                        param: dict = param_group.copy()
+                        param[name] = val
+                        additional_param_group.append(param)
+                else:
+                    param_group[name] = value
+            if additional_param_group:
+                param_groups.clear()
+                param_groups.extend(additional_param_group)
             return param_groups
 
     @staticmethod
@@ -456,11 +466,11 @@ class AwsScanner(BaseCloudScanner):
         param_groups = []
         for parameter in runner.get("Parameters", []):
             name = parameter["Name"]
-            value = parameter["Value"]
+            value = parameter.get("Value") or parameter.get("Values")
             is_dynamic = "|" in value
             parameter_keys.add(name)
             if not is_dynamic:
-                param_groups = self._fill_simple_params(param_groups, name, value)
+                param_groups = self._fill_simple_params(param_groups, name, value, parameter)
             else:
                 group = parameter.get("Group", False)
                 param_groups = self._fill_dynamic_params(param_groups, name, value, group, account_dir, region)
