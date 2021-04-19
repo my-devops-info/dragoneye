@@ -1,16 +1,7 @@
 pyjq
 boto3
-pytz
 PyYAML
-config
-psycopg2-binary
-dataclasses-json
-sqlalchemy
 backoff
-netaddr
 requests
-arnparse
-pyjwt
-packaging
 click
 click-aliases
