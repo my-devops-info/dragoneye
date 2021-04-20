@@ -6,7 +6,7 @@ import json
 
 from requests import Response
 
-from dragoneye.cloud_scanner.azure.azure_scan_request import AzureCloudScanSettings
+from dragoneye.cloud_scanner.azure.azure_scan_settings import AzureCloudScanSettings
 from dragoneye.cloud_scanner.base_cloud_scanner import BaseCloudScanner
 from dragoneye.utils.misc_utils import elapsed_time, invoke_get_request, init_directory, load_yaml, get_dynamic_values_from_files, \
     custom_serializer

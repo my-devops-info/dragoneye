@@ -1,5 +1,5 @@
-from dragoneye.cloud_scanner.aws.aws_scan_request import AwsCloudScanSettings
-from dragoneye.cloud_scanner.azure.azure_scan_request import AzureCloudScanSettings
+from dragoneye.cloud_scanner.aws.aws_scan_settings import AwsCloudScanSettings
+from dragoneye.cloud_scanner.azure.azure_scan_settings import AzureCloudScanSettings
 from dragoneye.cloud_scanner.aws.aws_scanner import AwsScanner
 from dragoneye.cloud_scanner.azure.azure_scanner import AzureScanner
 from dragoneye.cloud_scanner.aws.aws_session_factory import AwsSessionFactory

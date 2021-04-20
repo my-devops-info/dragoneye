@@ -12,3 +12,7 @@ class AwsUtils:
         else:
             default_region = 'us-east-1'
         return default_region
+
+    @staticmethod
+    def get_api_region() -> str:
+        return os.environ.get("AWS_REGION", "us-east-1")
