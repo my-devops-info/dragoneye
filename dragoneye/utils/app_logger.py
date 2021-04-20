@@ -4,8 +4,9 @@ import os
 INITIALIZED = False
 if not INITIALIZED:
     logger = logging.getLogger('dragoneye')
+    logger.propagate = False
     logger.setLevel(logging.INFO)
-
+    logger.addHandler(logging.StreamHandler())
     INITIALIZED = True
 
 
