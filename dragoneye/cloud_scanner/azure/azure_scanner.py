@@ -10,6 +10,7 @@ from dragoneye.cloud_scanner.azure.azure_scan_settings import AzureCloudScanSett
 from dragoneye.cloud_scanner.base_cloud_scanner import BaseCloudScanner
 from dragoneye.utils.misc_utils import elapsed_time, invoke_get_request, init_directory, load_yaml, get_dynamic_values_from_files, \
     custom_serializer
+from dragoneye.utils.app_logger import logger
 
 
 class AzureScanner(BaseCloudScanner):
@@ -47,17 +48,20 @@ class AzureScanner(BaseCloudScanner):
 
     def _execute_scan_commands(self, scan_command: dict, subscription_id: str, headers: dict,
                                account_data_dir: str, resource_groups: List[str]) -> None:
+        output_file = self._get_result_file_path(account_data_dir, scan_command['Name'])
+        if os.path.isfile(output_file):
+            # Data already scanned, so skip
+            logger.warning("  Response already present at {}".format(output_file))
+            return
+
         request = scan_command['Request']
-        name = scan_command['Name']
         parameters = scan_command.get('Parameters', [])
         url = request.replace('{subscriptionId}', subscription_id)
-
         results = AzureScanner._get_results(url, headers, parameters, account_data_dir, resource_groups)
-        self._save_result(account_data_dir, results, name)
+        self._save_result(results, output_file)
 
-    def _save_result(self, account_data_dir: str, result: dict, filename: str) -> None:
+    def _save_result(self, result: dict, filepath: str) -> None:
         self._add_resource_group(result)
-        filepath = os.path.join(account_data_dir, filename + '.json')
         with open(filepath, "w+") as file:
             json.dump(result, file, indent=4, default=custom_serializer)
 
@@ -104,7 +108,8 @@ class AzureScanner(BaseCloudScanner):
     def _get_resource_groups(self, headers: dict, subscription_id: str, account_data_dir: str) -> List[str]:
         results = AzureScanner._get_results(f'https://management.azure.com/subscriptions/{subscription_id}/resourcegroups?api-version=2020-09-01',
                                             headers, [], account_data_dir, [])
-        self._save_result(account_data_dir, results, 'resource-groups')
+        output_file = self._get_result_file_path(account_data_dir, 'resource-groups')
+        self._save_result(results, output_file)
         return get_dynamic_values_from_files('resource-groups.json|.value[].name', account_data_dir)
 
     @staticmethod
@@ -117,3 +122,7 @@ class AzureScanner(BaseCloudScanner):
                     item['resourceGroup'] = resource_group
                 except Exception:
                     pass
+
+    @staticmethod
+    def _get_result_file_path(account_data_dir: str, filename: str):
+        return os.path.join(account_data_dir, filename + '.json')
