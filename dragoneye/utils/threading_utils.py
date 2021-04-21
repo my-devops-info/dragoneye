@@ -16,9 +16,10 @@ class ThreadedFunctionData:
 
 
 # pylint: disable=E1136
-def execute_threads(queue: Queue[List[ThreadedFunctionData]], max_workers, timeout=None):
+def execute_threads(queue: Queue, max_workers, timeout=None):
     """
-    This function takes a Queue of lists, when each queued item represents a list of functions that should be run in parallel.
+    This function takes a Queue (queue: Queue[List[ThreadedFunctionData]])
+    of lists, when each queued item represents a list of functions that should be run in parallel.
     """
     tasks_data: List[Tuple[Future, str, str]] = []
     executor: ThreadPoolExecutor = ThreadPoolExecutor(max_workers=max_workers)
