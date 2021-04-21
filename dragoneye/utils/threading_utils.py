@@ -15,6 +15,7 @@ class ThreadedFunctionData:
     timeout_msg: str = None
 
 
+# pylint: disable=E1136
 def execute_threads(queue: Queue[List[ThreadedFunctionData]], max_workers, timeout=None):
     """
     This function takes a Queue of lists, when each queued item represents a list of functions that should be run in parallel.
