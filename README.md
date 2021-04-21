@@ -31,11 +31,11 @@ aws_settings = AwsCloudScanSettings(
 )
 
 # Using environment variables
-session = AwsSessionFactory.get_session(profile_name=None)  # Raises exception if authentication is unsuccessful
+session = AwsSessionFactory.get_session(profile_name=None, region='us-east-1')  # Raises exception if authentication is unsuccessful
 aws_scan_output_directory = AwsScanner(session, aws_settings).scan()
 
 # Using an AWS Profile
-session = AwsSessionFactory.get_session(profile_name='MyProfile')  # Raises exception if authentication is unsuccessful
+session = AwsSessionFactory.get_session(profile_name='MyProfile', region='us-east-1')  # Raises exception if authentication is unsuccessful
 aws_scan_output_directory = AwsScanner(session, aws_settings).scan()
 
 # Assume Role
