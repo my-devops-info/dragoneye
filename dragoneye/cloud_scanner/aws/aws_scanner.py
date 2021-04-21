@@ -1,13 +1,11 @@
-import concurrent
 import copy
+import logging
 import os.path
 import os
 import re
-from concurrent.futures._base import ALL_COMPLETED
-from concurrent.futures.thread import ThreadPoolExecutor
-import logging
 import json
 import time
+from queue import Queue
 from typing import List, Dict, Optional
 
 import urllib.parse
@@ -19,6 +17,7 @@ from dragoneye.cloud_scanner.base_cloud_scanner import BaseCloudScanner
 from dragoneye.utils.app_logger import logger
 from dragoneye.utils.misc_utils import get_dynamic_values_from_files, custom_serializer, make_directory, init_directory, load_yaml, snakecase, \
     elapsed_time
+from dragoneye.utils.threading_utils import execute_threads, ThreadedFunctionData
 
 MAX_RETRIES = 3
 MAX_WORKER = 10
@@ -39,19 +38,28 @@ class AwsScanner(BaseCloudScanner):
             "cloudfront",
             "organizations",
         ]
+        self.scan_commands = None
         logging.getLogger("botocore").setLevel(logging.WARN)
 
     @elapsed_time('Scanning AWS live environment took {} seconds')
     def scan(self) -> str:
+        self.scan_commands = load_yaml(self.settings.commands_path)
         account_data_dir = init_directory(self.settings.output_path, self.settings.account_name, self.settings.clean)
         region_dict_list = self._create_regions_file_structure(account_data_dir)
 
         summary = []
-        executor: ThreadPoolExecutor = ThreadPoolExecutor(max_workers=MAX_WORKER)
+        queue = Queue()
+        call_data = []
 
         for region in region_dict_list:
-            executor.submit(self._scan_region_data, region, account_data_dir, summary)
-        executor.shutdown(True)
+            call_data.append(ThreadedFunctionData(
+                self._scan_region_data,
+                (region, account_data_dir, summary),
+                'An unknown exception has occurred'
+            ))
+        queue.put_nowait(call_data)
+
+        execute_threads(queue, 20)
 
         self._print_summary(summary)
 
@@ -168,6 +176,7 @@ class AwsScanner(BaseCloudScanner):
     @staticmethod
     def _get_data(output_file, handler, method_to_call, parameters, checks, call_summary):
         logger.info("  Making call for {}".format(output_file))
+        data = None
         try:
             for retries in range(MAX_RETRIES):
                 data = AwsScanner._call_boto_function(output_file, handler, method_to_call, parameters)
@@ -304,8 +313,6 @@ class AwsScanner(BaseCloudScanner):
                 )
 
     def _run_scan_commands(self, region, runner, account_dir, summary):
-        executor: ThreadPoolExecutor = ThreadPoolExecutor(max_workers=20)
-        tasks = []
         region = copy.deepcopy(region)
         runner = copy.deepcopy(runner)
         logger.info(
@@ -326,6 +333,9 @@ class AwsScanner(BaseCloudScanner):
         parameter_keys = set()
         param_groups = self._get_parameter_group(runner, account_dir, region, parameter_keys)
 
+        queue = Queue()
+        call_data = []
+
         if runner.get("Parameters"):
             make_directory(filepath)
             for param_group in param_groups:
@@ -333,43 +343,51 @@ class AwsScanner(BaseCloudScanner):
                     continue
                 file_name = urllib.parse.quote_plus('_'.join([f'{k}-{v}' for k, v in param_group.items()]))
                 output_file = f"{filepath}/{file_name}.json"
-                tasks.append(executor.submit(AwsScanner._get_and_save_data,
-                                             output_file,
-                                             handler,
-                                             method_to_call,
-                                             param_group,
-                                             runner.get("Check", None),
-                                             summary,
-                                             ))
+                call_data.append(ThreadedFunctionData(
+                    AwsScanner._get_and_save_data,
+                    (output_file,
+                     handler,
+                     method_to_call,
+                     param_group,
+                     runner.get("Check", None),
+                     summary),
+                    'exception on command {}'.format(runner),
+                    'timeout on command {}'.format(runner)))
         else:
-            filepath = filepath + ".json"
-            tasks.append(executor.submit(AwsScanner._get_and_save_data,
-                                         filepath,
-                                         handler,
-                                         method_to_call,
-                                         {},
-                                         runner.get("Check", None),
-                                         summary,
-                                         ))
-        concurrent.futures.wait(tasks, timeout=self.settings.command_timeout, return_when=ALL_COMPLETED)
-        timeout_tasks = [task for task in tasks if task.running()]
-        if timeout_tasks:
-            logging.exception('timeout command {}'.format(runner))
-        for timeout_task in timeout_tasks:
-            timeout_task.cancel()
+            output_file = filepath + ".json"
+            call_data.append(ThreadedFunctionData(
+                AwsScanner._get_and_save_data,
+                (output_file,
+                 handler,
+                 method_to_call,
+                 {},
+                 runner.get("Check", None),
+                 summary), 'exception on command {}'.format(runner), 'timeout on command {}'.format(runner)))
+
+        queue.put_nowait(call_data)
+        execute_threads(queue, 20, self.settings.command_timeout)
 
     def _scan_region_data(self, region, account_dir, summary):
-        scan_commands = load_yaml(self.settings.commands_path)
-        dependable_commands = [command for command in scan_commands if command.get("Parameters", False)]
-        non_dependable_commands = [command for command in scan_commands if not command.get("Parameters", False)]
+        dependable_commands = [command for command in self.scan_commands if command.get("Parameters", False)]
+        non_dependable_commands = [command for command in self.scan_commands if not command.get("Parameters", False)]
 
-        executor: ThreadPoolExecutor = ThreadPoolExecutor(max_workers=20)
-        for command in non_dependable_commands:
-            executor.submit(self._run_scan_commands, region, command, account_dir, summary)
-        executor.shutdown(True)
+        queue = Queue()
+        call_data = []
 
-        for command in dependable_commands:
-            self._run_scan_commands(region, command, account_dir, summary)
+        for non_dependable_command in non_dependable_commands:
+            call_data.append(ThreadedFunctionData(
+                self._run_scan_commands,
+                (region, non_dependable_command, account_dir, summary),
+                'exception on command {}'.format(non_dependable_command)))
+
+        queue.put_nowait(call_data)
+        for dependable_command in dependable_commands:
+            queue.put_nowait([ThreadedFunctionData(
+                self._run_scan_commands,
+                (region, dependable_command, account_dir, summary),
+                'exception on command {}'.format(dependable_command))])
+
+        execute_threads(queue, 20)
 
     @staticmethod
     def _get_call_parameters(call_parameters: dict, parameters_def: list) -> List[dict]:
