@@ -2,16 +2,13 @@ import os
 
 import click
 from click_aliases import ClickAliasedGroup
+
 from dragoneye.cloud_scanner.aws.aws_scanner import AwsScanner
-
 from dragoneye.cloud_scanner.aws.aws_session_factory import AwsSessionFactory
-
-from dragoneye.cloud_scanner.azure.azure_scanner import AzureScanner
-
-from dragoneye.cloud_scanner.azure.azure_authorizer import AzureAuthorizer
-
-from dragoneye.cloud_scanner.aws.aws_scan_settings import AwsCloudScanSettings
 from dragoneye.cloud_scanner.aws.aws_utils import AwsUtils
+from dragoneye.cloud_scanner.azure.azure_scanner import AzureScanner
+from dragoneye.cloud_scanner.azure.azure_authorizer import AzureAuthorizer
+from dragoneye.cloud_scanner.aws.aws_scan_settings import AwsCloudScanSettings, AwsRegionType
 from dragoneye.cloud_scanner.azure.azure_scan_settings import AzureCloudScanSettings
 from dragoneye.utils.value_validator import validate_uuid, validate_path
 
@@ -112,17 +109,17 @@ def azure(cloud_account_name: str,
               help='The path in which the scan results will be saved on. Defaults to current working directory.',
               type=click.STRING,
               default=os.getcwd())
-@click.option('--api-region',
-              help='The region to invoke the api calls against',
-              type=click.STRING,
-              default=AwsUtils.get_api_region())
+@click.option('--region-type',
+              help='The AWS region. Defaults to Standard.',
+              type=click.Choice([region.value for region in AwsRegionType], case_sensitive=False),
+              default='standard')
 def aws(cloud_account_name,
         profile,
         regions,
         scan_commands_path,
         clean,
         output_path,
-        api_region):
+        region_type):
     aws_scan_settings = AwsCloudScanSettings(
         commands_path=scan_commands_path,
         account_name=cloud_account_name,
@@ -131,7 +128,7 @@ def aws(cloud_account_name,
         output_path=output_path)
 
     validate_path(scan_commands_path)
-    session = AwsSessionFactory.get_session(profile, api_region)
+    session = AwsSessionFactory.get_session(profile, AwsUtils.get_default_region_by_type(AwsRegionType(region_type)))
     output_path = AwsScanner(session, aws_scan_settings).scan()
     click.echo(f'Results saved to {output_path}')
 

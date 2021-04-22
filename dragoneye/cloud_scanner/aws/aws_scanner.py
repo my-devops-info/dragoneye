@@ -13,6 +13,7 @@ from botocore.exceptions import ClientError, EndpointConnectionError
 from botocore.config import Config
 
 from dragoneye.cloud_scanner.aws.aws_scan_settings import AwsCloudScanSettings
+from dragoneye.cloud_scanner.aws.aws_utils import AwsUtils
 from dragoneye.cloud_scanner.base_cloud_scanner import BaseCloudScanner
 from dragoneye.utils.app_logger import logger
 from dragoneye.utils.misc_utils import get_dynamic_values_from_files, custom_serializer, make_directory, init_directory, load_yaml, snakecase, \
@@ -38,6 +39,7 @@ class AwsScanner(BaseCloudScanner):
             "organizations",
         ]
         self.scan_commands = None
+        self.default_region = self.session.region_name or AwsUtils.get_default_region(settings.region_type)
         logging.getLogger("botocore").setLevel(logging.WARN)
 
     @elapsed_time('Scanning AWS live environment took {} seconds')
@@ -83,11 +85,11 @@ class AwsScanner(BaseCloudScanner):
         if len(self.settings.regions_filter) > 0:
             regions_filter = self.settings.regions_filter.lower().split(",")
             # Force include of default region -- seems to be required
-            if self.settings.default_region not in regions_filter:
-                regions_filter.append(self.settings.default_region)
+            if self.default_region not in regions_filter:
+                regions_filter.append(self.default_region)
 
         logger.info("* Getting region names")
-        ec2 = self.session.client("ec2")
+        ec2 = self.session.client("ec2", region_name=self.default_region)
         region_list = ec2.describe_regions()
 
         if regions_filter is not None:
@@ -481,7 +483,7 @@ class AwsScanner(BaseCloudScanner):
 
     def _should_run_command_on_region(self, runner: dict, region_dict: dict) -> bool:
         if runner["Service"] in self.universal_services:
-            if region_dict["RegionName"] != self.settings.default_region:
+            if region_dict["RegionName"] != self.default_region:
                 return False
         elif runner["Service"] != 'eks' and region_dict["RegionName"] not in self.session.get_available_regions(runner["Service"]):
             logger.info("Skipping region {}, as {} does not exist there"
