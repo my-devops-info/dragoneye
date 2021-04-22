@@ -146,7 +146,7 @@ class AwsScanner(BaseCloudScanner):
         return urllib.parse.quote_plus(filename)
 
     @staticmethod
-    def _get_and_save_data(output_file, handler, method_to_call, parameters, checks, summary):
+    def _get_and_save_data(output_file, handler, method_to_call, parameters, checks, region, all_call_summaries):
         """
         Calls the AWS API function and downloads the data
 
@@ -164,6 +164,7 @@ class AwsScanner(BaseCloudScanner):
             "service": handler.meta.service_model.service_name,
             "action": method_to_call,
             "parameters": parameters,
+            "region": region
         }
 
         data = AwsScanner._get_data(output_file, handler, method_to_call, parameters, checks, call_summary)
@@ -171,7 +172,7 @@ class AwsScanner(BaseCloudScanner):
         AwsScanner._save_results_to_file(output_file, data)
 
         logger.info("finished call for {}".format(output_file))
-        summary.append(call_summary)
+        all_call_summaries.append(call_summary)
 
     @staticmethod
     def _get_data(output_file, handler, method_to_call, parameters, checks, call_summary):
@@ -254,6 +255,12 @@ class AwsScanner(BaseCloudScanner):
                 logger.warning("  - Denied, which should mean this KMS has restricted access")
             elif "AWSOrganizationsNotInUseException" in str(ex):
                 logger.warning(' - Your account is not a member of an organization.')
+            elif (
+                    "EntityNotFoundException" in str(ex)
+                    and call_summary["service"] == "glue"
+                    and call_summary["action"] == "get_resource_policy"
+            ):
+                logger.warning(f' - Glue policy does not exist on region {call_summary["region"]}')
             else:
                 logger.warning(f"ClientError {retries}: {ex}")
                 call_summary["exception"] = ex
@@ -315,6 +322,7 @@ class AwsScanner(BaseCloudScanner):
     def _run_scan_commands(self, region, runner, account_dir, summary):
         region = copy.deepcopy(region)
         runner = copy.deepcopy(runner)
+        region_name = region["RegionName"]
         logger.info(
             "* Getting {}:{}:{} info".format(region["RegionName"], runner["Service"], runner["Request"])
         )
@@ -350,6 +358,7 @@ class AwsScanner(BaseCloudScanner):
                      method_to_call,
                      param_group,
                      runner.get("Check", None),
+                     region_name,
                      summary),
                     'exception on command {}'.format(runner),
                     'timeout on command {}'.format(runner)))
@@ -362,6 +371,7 @@ class AwsScanner(BaseCloudScanner):
                  method_to_call,
                  {},
                  runner.get("Check", None),
+                 region_name,
                  summary), 'exception on command {}'.format(runner), 'timeout on command {}'.format(runner)))
 
         queue.put_nowait(call_data)
