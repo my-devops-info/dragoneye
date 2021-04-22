@@ -138,7 +138,7 @@ class AwsScanner(BaseCloudScanner):
         return urllib.parse.quote_plus(filename)
 
     @staticmethod
-    def _get_and_save_data(output_file, handler, method_to_call, parameters, checks, summary):
+    def _get_and_save_data(output_file, handler, method_to_call, parameters, checks, region, all_call_summaries):
         """
         Calls the AWS API function and downloads the data
 
@@ -156,6 +156,7 @@ class AwsScanner(BaseCloudScanner):
             "service": handler.meta.service_model.service_name,
             "action": method_to_call,
             "parameters": parameters,
+            "region": region
         }
 
         data = AwsScanner._get_data(output_file, handler, method_to_call, parameters, checks, call_summary)
@@ -163,11 +164,12 @@ class AwsScanner(BaseCloudScanner):
         AwsScanner._save_results_to_file(output_file, data)
 
         logger.info("finished call for {}".format(output_file))
-        summary.append(call_summary)
+        all_call_summaries.append(call_summary)
 
     @staticmethod
     def _get_data(output_file, handler, method_to_call, parameters, checks, call_summary):
         logger.info("  Making call for {}".format(output_file))
+        data = None
         try:
             for retries in range(MAX_RETRIES):
                 data = AwsScanner._call_boto_function(output_file, handler, method_to_call, parameters)
@@ -245,6 +247,12 @@ class AwsScanner(BaseCloudScanner):
                 logger.warning("  - Denied, which should mean this KMS has restricted access")
             elif "AWSOrganizationsNotInUseException" in str(ex):
                 logger.warning(' - Your account is not a member of an organization.')
+            elif (
+                    "EntityNotFoundException" in str(ex)
+                    and call_summary["service"] == "glue"
+                    and call_summary["action"] == "get_resource_policy"
+            ):
+                logger.warning(f' - Glue policy does not exist on region {call_summary["region"]}')
             else:
                 logger.warning(f"ClientError {retries}: {ex}")
                 call_summary["exception"] = ex
@@ -308,6 +316,7 @@ class AwsScanner(BaseCloudScanner):
         tasks = []
         region = copy.deepcopy(region)
         runner = copy.deepcopy(runner)
+        region_name = region["RegionName"]
         logger.info(
             "* Getting {}:{}:{} info".format(region["RegionName"], runner["Service"], runner["Request"])
         )
@@ -339,6 +348,7 @@ class AwsScanner(BaseCloudScanner):
                                              method_to_call,
                                              param_group,
                                              runner.get("Check", None),
+                                             region_name,
                                              summary,
                                              ))
         else:
@@ -349,6 +359,7 @@ class AwsScanner(BaseCloudScanner):
                                          method_to_call,
                                          {},
                                          runner.get("Check", None),
+                                         region_name,
                                          summary,
                                          ))
         concurrent.futures.wait(tasks, timeout=self.settings.command_timeout, return_when=ALL_COMPLETED)
