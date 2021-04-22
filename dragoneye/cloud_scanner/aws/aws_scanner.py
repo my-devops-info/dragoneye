@@ -174,7 +174,7 @@ class AwsScanner(BaseCloudScanner):
             for retries in range(MAX_RETRIES):
                 data = AwsScanner._call_boto_function(output_file, handler, method_to_call, parameters)
                 if not checks or AwsScanner._is_data_passing_check(data, checks):
-                    pass
+                    break
                 elif retries == MAX_RETRIES - 1:
                     raise Exception(
                         "One of the following checks has repeatedly failed: {}".format(
