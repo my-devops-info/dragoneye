@@ -11,7 +11,7 @@ from dragoneye.cloud_scanner.base_cloud_scanner import BaseCloudScanner
 from dragoneye.utils.misc_utils import elapsed_time, invoke_get_request, init_directory, load_yaml, get_dynamic_values_from_files, \
     custom_serializer
 from dragoneye.utils.app_logger import logger
-from dragoneye.utils.threading_utils import ThreadedFunctionData, execute_threads
+from dragoneye.utils.threading_utils import ThreadedFunctionData, execute_parallel_functions_in_threads
 
 
 class AzureScanner(BaseCloudScanner):
@@ -53,7 +53,7 @@ class AzureScanner(BaseCloudScanner):
                 (dependable_command, subscription_id, headers, account_data_dir, resource_groups),
                 'exception on command {}'.format(dependable_command))])
 
-        execute_threads(queue, 20)
+        execute_parallel_functions_in_threads(queue, 20)
 
         return os.path.abspath(os.path.join(account_data_dir, '..'))
 

@@ -17,7 +17,7 @@ from dragoneye.cloud_scanner.base_cloud_scanner import BaseCloudScanner
 from dragoneye.utils.app_logger import logger
 from dragoneye.utils.misc_utils import get_dynamic_values_from_files, custom_serializer, make_directory, init_directory, load_yaml, snakecase, \
     elapsed_time
-from dragoneye.utils.threading_utils import execute_threads, ThreadedFunctionData
+from dragoneye.utils.threading_utils import execute_parallel_functions_in_threads, ThreadedFunctionData
 
 MAX_RETRIES = 3
 MAX_WORKER = 10
@@ -59,7 +59,7 @@ class AwsScanner(BaseCloudScanner):
             ))
         queue.put_nowait(call_data)
 
-        execute_threads(queue, 20)
+        execute_parallel_functions_in_threads(queue, 20)
 
         self._print_summary(summary)
 
@@ -375,7 +375,7 @@ class AwsScanner(BaseCloudScanner):
                  summary), 'exception on command {}'.format(runner), 'timeout on command {}'.format(runner)))
 
         queue.put_nowait(call_data)
-        execute_threads(queue, 20, self.settings.command_timeout)
+        execute_parallel_functions_in_threads(queue, 20, self.settings.command_timeout)
 
     def _scan_region_data(self, region, account_dir, summary):
         dependable_commands = [command for command in self.scan_commands if command.get("Parameters", False)]
@@ -397,7 +397,7 @@ class AwsScanner(BaseCloudScanner):
                 (region, dependable_command, account_dir, summary),
                 'exception on command {}'.format(dependable_command))])
 
-        execute_threads(queue, 20)
+        execute_parallel_functions_in_threads(queue, 20)
 
     @staticmethod
     def _get_call_parameters(call_parameters: dict, parameters_def: list) -> List[dict]:

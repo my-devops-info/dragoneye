@@ -15,7 +15,7 @@ class ThreadedFunctionData:
     timeout_msg: str = None
 
 
-def execute_threads(queue: Queue, max_workers, timeout=None):
+def execute_parallel_functions_in_threads(queue: Queue, max_workers, timeout=None):
     """
     This function takes a Queue (queue: Queue[List[ThreadedFunctionData]])
     of lists, when each queued item represents a list of functions that should be run in parallel.
