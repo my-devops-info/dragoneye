@@ -5,7 +5,7 @@ import uuid
 from unittest.mock import patch
 
 from click.testing import CliRunner
-from mockito import when
+from mockito import when, mock
 
 import dragoneye
 from dragoneye import AzureAuthorizer, AwsSessionFactory
@@ -91,7 +91,7 @@ class TestScan(unittest.TestCase):
     @patch.object(AwsSessionFactory, 'get_session')
     def test_aws_no_profile_ok(self, mock_aws_session_factory):
         # Arrange
-        mock_aws_session_factory.return_value = None
+        mock_aws_session_factory.return_value = mock({'region_name': 'us-east-1'})
         when(dragoneye.cloud_scanner.aws.aws_scanner.AwsScanner).scan().thenReturn('/path/to/results')
         # Act
         result = self.runner.invoke(scan_cli, ['aws',
@@ -103,7 +103,7 @@ class TestScan(unittest.TestCase):
     @patch.object(AwsSessionFactory, 'get_session')
     def test_aws_with_profile_ok(self, mock_aws_session_factory):
         # Arrange
-        mock_aws_session_factory.return_value = None
+        mock_aws_session_factory.return_value = mock({'region_name': 'us-east-1'})
         when(dragoneye.cloud_scanner.aws.aws_scanner.AwsScanner).scan().thenReturn('/path/to/results')
         # Act
         result = self.runner.invoke(scan_cli, ['aws',
