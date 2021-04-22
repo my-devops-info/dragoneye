@@ -63,7 +63,7 @@ class AzureScanner(BaseCloudScanner):
             output_file = self._get_result_file_path(account_data_dir, scan_command['Name'])
             if os.path.isfile(output_file):
                 # Data already scanned, so skip
-                logger.warning("  Response already present at {}".format(output_file))
+                logger.warning('  Response already present at {}'.format(output_file))
                 return
 
             request = scan_command['Request']
