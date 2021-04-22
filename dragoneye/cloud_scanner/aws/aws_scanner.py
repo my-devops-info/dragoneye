@@ -20,7 +20,6 @@ from dragoneye.utils.misc_utils import get_dynamic_values_from_files, custom_ser
 from dragoneye.utils.threading_utils import execute_parallel_functions_in_threads, ThreadedFunctionData
 
 MAX_RETRIES = 3
-MAX_WORKER = 10
 
 
 class AwsScanner(BaseCloudScanner):
@@ -59,7 +58,7 @@ class AwsScanner(BaseCloudScanner):
             ))
         queue.put_nowait(call_data)
 
-        execute_parallel_functions_in_threads(queue, 20)
+        execute_parallel_functions_in_threads(queue, 10)
 
         self._print_summary(summary)
 
