@@ -360,7 +360,8 @@ class AwsScanner(BaseCloudScanner):
             for param_group in param_groups:
                 if set(param_group.keys()) != parameter_keys:
                     continue
-                file_name = urllib.parse.quote_plus('_'.join([f'{k}-{v}' for k, v in param_group.items()]))
+                unparsed_file_name = '_'.join([f'{k}-{v}' if not isinstance(v, list) else k for k, v in param_group.items()])
+                file_name = urllib.parse.quote_plus(unparsed_file_name)
                 output_file = f"{filepath}/{file_name}.json"
                 call_data.append(ThreadedFunctionData(
                     AwsScanner._get_and_save_data,
