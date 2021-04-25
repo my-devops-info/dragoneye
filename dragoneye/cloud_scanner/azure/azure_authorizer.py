@@ -9,7 +9,7 @@ from dragoneye.dragoneye_exception import DragoneyeException
 class AzureAuthorizer:
     @staticmethod
     def get_authorization_token(tenant_id: str, client_id: str, client_secret: str) -> str:
-        logger.info('Will try to generate JWT bearer token ...')
+        logger.info('Will try to generate JWT bearer token...')
         response = requests.post(
             url=f'https://login.microsoftonline.com/{tenant_id}/oauth2/token',
             data={
