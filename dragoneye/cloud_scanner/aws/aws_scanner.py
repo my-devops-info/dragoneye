@@ -38,6 +38,10 @@ class AwsScanner(BaseCloudScanner):
             "organizations",
         ]
         self.scan_commands = None
+        self.default_region = settings.default_region or self.session.region_name
+        if self.default_region is None:
+            raise ValueError('Default region cannot be empty. '
+                             'You must specify the default region or set the AWS_DEFAULT_REGION environment variable')
         logging.getLogger("botocore").setLevel(logging.WARN)
 
     @elapsed_time('Scanning AWS live environment took {} seconds')
@@ -83,11 +87,11 @@ class AwsScanner(BaseCloudScanner):
         if len(self.settings.regions_filter) > 0:
             regions_filter = self.settings.regions_filter.lower().split(",")
             # Force include of default region -- seems to be required
-            if self.settings.default_region not in regions_filter:
-                regions_filter.append(self.settings.default_region)
+            if self.default_region not in regions_filter:
+                regions_filter.append(self.default_region)
 
         logger.info("* Getting region names")
-        ec2 = self.session.client("ec2")
+        ec2 = self.session.client("ec2", region_name=self.default_region)
         region_list = ec2.describe_regions()
 
         if regions_filter is not None:
@@ -489,7 +493,7 @@ class AwsScanner(BaseCloudScanner):
 
     def _should_run_command_on_region(self, runner: dict, region_dict: dict) -> bool:
         if runner["Service"] in self.universal_services:
-            if region_dict["RegionName"] != self.settings.default_region:
+            if region_dict["RegionName"] != self.default_region:
                 return False
         elif runner["Service"] != 'eks' and region_dict["RegionName"] not in self.session.get_available_regions(runner["Service"]):
             logger.info("Skipping region {}, as {} does not exist there"
