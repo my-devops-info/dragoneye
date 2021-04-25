@@ -260,6 +260,14 @@ class AwsScanner(BaseCloudScanner):
                     and call_summary["action"] == "get_resource_policy"
             ):
                 logger.warning(f' - Glue policy does not exist on region {call_summary["region"]}')
+            elif (
+                    "NoSuchEntity" in str(ex)
+            ):
+                logger.warning(f"  - {str(ex)}")
+            elif (
+                    "NoSuchAccessPointPolicy" in str(ex)
+            ):
+                logger.warning(f"  - {str(ex)}")
             else:
                 logger.warning(f"ClientError {retries}: {ex}")
                 call_summary["exception"] = ex
