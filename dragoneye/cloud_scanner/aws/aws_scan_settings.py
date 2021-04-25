@@ -22,7 +22,7 @@ class AwsCloudScanSettings(CloudScanSettings):
                  command_timeout: int = 600,
                  output_path: str = os.getcwd(),
                  should_clean_before_scan: bool = True,
-                 region_type: AwsRegionType = AwsRegionType.Standard):
+                 region_type: AwsRegionType = AwsRegionType.STANDARD):
         super().__init__(CloudProvider.AWS, account_name, should_clean_before_scan, output_path, commands_path)
         self.regions_filter: str = ','.join(regions_filter) if regions_filter else ''
         self.max_attempts: int = max_attempts
