@@ -1,27 +1,25 @@
-import concurrent
 import copy
+import logging
 import os.path
 import os
 import re
-from concurrent.futures._base import ALL_COMPLETED
-from concurrent.futures.thread import ThreadPoolExecutor
-import logging
 import json
 import time
+from queue import Queue
 from typing import List, Dict, Optional
 
 import urllib.parse
 from botocore.exceptions import ClientError, EndpointConnectionError
 from botocore.config import Config
 
-from dragoneye.cloud_scanner.aws.aws_scan_request import AwsCloudScanSettings
+from dragoneye.cloud_scanner.aws.aws_scan_settings import AwsCloudScanSettings
 from dragoneye.cloud_scanner.base_cloud_scanner import BaseCloudScanner
 from dragoneye.utils.app_logger import logger
 from dragoneye.utils.misc_utils import get_dynamic_values_from_files, custom_serializer, make_directory, init_directory, load_yaml, snakecase, \
     elapsed_time
+from dragoneye.utils.threading_utils import execute_parallel_functions_in_threads, ThreadedFunctionData
 
 MAX_RETRIES = 3
-MAX_WORKER = 10
 
 
 class AwsScanner(BaseCloudScanner):
@@ -39,19 +37,32 @@ class AwsScanner(BaseCloudScanner):
             "cloudfront",
             "organizations",
         ]
+        self.scan_commands = None
+        self.default_region = settings.default_region or self.session.region_name
+        if self.default_region is None:
+            raise ValueError('Default region cannot be empty. '
+                             'You must specify the default region or set the AWS_DEFAULT_REGION environment variable')
         logging.getLogger("botocore").setLevel(logging.WARN)
 
-    @elapsed_time
+    @elapsed_time('Scanning AWS live environment took {} seconds')
     def scan(self) -> str:
+        self.scan_commands = load_yaml(self.settings.commands_path)
         account_data_dir = init_directory(self.settings.output_path, self.settings.account_name, self.settings.clean)
         region_dict_list = self._create_regions_file_structure(account_data_dir)
 
         summary = []
-        executor: ThreadPoolExecutor = ThreadPoolExecutor(max_workers=MAX_WORKER)
+        queue = Queue()
+        call_data = []
 
         for region in region_dict_list:
-            executor.submit(self._scan_region_data, region, account_data_dir, summary)
-        executor.shutdown(True)
+            call_data.append(ThreadedFunctionData(
+                self._scan_region_data,
+                (region, account_data_dir, summary),
+                'An unknown exception has occurred'
+            ))
+        queue.put_nowait(call_data)
+
+        execute_parallel_functions_in_threads(queue, 10)
 
         self._print_summary(summary)
 
@@ -76,11 +87,11 @@ class AwsScanner(BaseCloudScanner):
         if len(self.settings.regions_filter) > 0:
             regions_filter = self.settings.regions_filter.lower().split(",")
             # Force include of default region -- seems to be required
-            if self.settings.default_region not in regions_filter:
-                regions_filter.append(self.settings.default_region)
+            if self.default_region not in regions_filter:
+                regions_filter.append(self.default_region)
 
         logger.info("* Getting region names")
-        ec2 = self.session.client("ec2")
+        ec2 = self.session.client("ec2", region_name=self.default_region)
         region_list = ec2.describe_regions()
 
         if regions_filter is not None:
@@ -138,7 +149,7 @@ class AwsScanner(BaseCloudScanner):
         return urllib.parse.quote_plus(filename)
 
     @staticmethod
-    def _get_and_save_data(output_file, handler, method_to_call, parameters, checks, summary):
+    def _get_and_save_data(output_file, handler, method_to_call, parameters, checks, region, all_call_summaries):
         """
         Calls the AWS API function and downloads the data
 
@@ -156,6 +167,7 @@ class AwsScanner(BaseCloudScanner):
             "service": handler.meta.service_model.service_name,
             "action": method_to_call,
             "parameters": parameters,
+            "region": region
         }
 
         data = AwsScanner._get_data(output_file, handler, method_to_call, parameters, checks, call_summary)
@@ -163,11 +175,12 @@ class AwsScanner(BaseCloudScanner):
         AwsScanner._save_results_to_file(output_file, data)
 
         logger.info("finished call for {}".format(output_file))
-        summary.append(call_summary)
+        all_call_summaries.append(call_summary)
 
     @staticmethod
     def _get_data(output_file, handler, method_to_call, parameters, checks, call_summary):
         logger.info("  Making call for {}".format(output_file))
+        data = None
         try:
             for retries in range(MAX_RETRIES):
                 data = AwsScanner._call_boto_function(output_file, handler, method_to_call, parameters)
@@ -245,6 +258,20 @@ class AwsScanner(BaseCloudScanner):
                 logger.warning("  - Denied, which should mean this KMS has restricted access")
             elif "AWSOrganizationsNotInUseException" in str(ex):
                 logger.warning(' - Your account is not a member of an organization.')
+            elif (
+                    "EntityNotFoundException" in str(ex)
+                    and call_summary["service"] == "glue"
+                    and call_summary["action"] == "get_resource_policy"
+            ):
+                logger.warning(f' - Glue policy does not exist on region {call_summary["region"]}')
+            elif (
+                    "NoSuchEntity" in str(ex)
+            ):
+                logger.warning(f"  - {str(ex)}")
+            elif (
+                    "NoSuchAccessPointPolicy" in str(ex)
+            ):
+                logger.warning(f"  - {str(ex)}")
             else:
                 logger.warning(f"ClientError {retries}: {ex}")
                 call_summary["exception"] = ex
@@ -254,6 +281,8 @@ class AwsScanner(BaseCloudScanner):
         except Exception as ex:
             logger.warning("Exception: {}".format(ex))
             call_summary["exception"] = ex
+
+        return data
 
     @staticmethod
     def _call_boto_function(output_file, handler, method_to_call, parameters):
@@ -302,10 +331,9 @@ class AwsScanner(BaseCloudScanner):
                 )
 
     def _run_scan_commands(self, region, runner, account_dir, summary):
-        executor: ThreadPoolExecutor = ThreadPoolExecutor(max_workers=20)
-        tasks = []
         region = copy.deepcopy(region)
         runner = copy.deepcopy(runner)
+        region_name = region["RegionName"]
         logger.info(
             "* Getting {}:{}:{} info".format(region["RegionName"], runner["Service"], runner["Request"])
         )
@@ -318,11 +346,14 @@ class AwsScanner(BaseCloudScanner):
                           max_pool_connections=self.settings.max_pool_connections)
         )
 
-        filepath = os.path.join(account_dir, region["RegionName"], f'{runner["Service"]}--{runner["Request"]}')
+        filepath = os.path.join(account_dir, region["RegionName"], f'{runner["Service"]}-{runner["Request"]}')
 
         method_to_call = snakecase(runner["Request"])
         parameter_keys = set()
         param_groups = self._get_parameter_group(runner, account_dir, region, parameter_keys)
+
+        queue = Queue()
+        call_data = []
 
         if runner.get("Parameters"):
             make_directory(filepath)
@@ -331,43 +362,53 @@ class AwsScanner(BaseCloudScanner):
                     continue
                 file_name = urllib.parse.quote_plus('_'.join([f'{k}-{v}' for k, v in param_group.items()]))
                 output_file = f"{filepath}/{file_name}.json"
-                tasks.append(executor.submit(AwsScanner._get_and_save_data,
-                                             output_file,
-                                             handler,
-                                             method_to_call,
-                                             param_group,
-                                             runner.get("Check", None),
-                                             summary,
-                                             ))
+                call_data.append(ThreadedFunctionData(
+                    AwsScanner._get_and_save_data,
+                    (output_file,
+                     handler,
+                     method_to_call,
+                     param_group,
+                     runner.get("Check", None),
+                     region_name,
+                     summary),
+                    'exception on command {}'.format(runner),
+                    'timeout on command {}'.format(runner)))
         else:
-            filepath = filepath + ".json"
-            tasks.append(executor.submit(AwsScanner._get_and_save_data,
-                                         filepath,
-                                         handler,
-                                         method_to_call,
-                                         {},
-                                         runner.get("Check", None),
-                                         summary,
-                                         ))
-        concurrent.futures.wait(tasks, timeout=self.settings.command_timeout, return_when=ALL_COMPLETED)
-        timeout_tasks = [task for task in tasks if task.running()]
-        if timeout_tasks:
-            logging.exception('timeout command {}'.format(runner))
-        for timeout_task in timeout_tasks:
-            timeout_task.cancel()
+            output_file = filepath + ".json"
+            call_data.append(ThreadedFunctionData(
+                AwsScanner._get_and_save_data,
+                (output_file,
+                 handler,
+                 method_to_call,
+                 {},
+                 runner.get("Check", None),
+                 region_name,
+                 summary), 'exception on command {}'.format(runner), 'timeout on command {}'.format(runner)))
+
+        queue.put_nowait(call_data)
+        execute_parallel_functions_in_threads(queue, 20, self.settings.command_timeout)
 
     def _scan_region_data(self, region, account_dir, summary):
-        scan_commands = load_yaml(self.settings.commands_path)
-        dependable_commands = [command for command in scan_commands if command.get("Parameters", False)]
-        non_dependable_commands = [command for command in scan_commands if not command.get("Parameters", False)]
+        dependable_commands = [command for command in self.scan_commands if command.get("Parameters", False)]
+        non_dependable_commands = [command for command in self.scan_commands if not command.get("Parameters", False)]
 
-        executor: ThreadPoolExecutor = ThreadPoolExecutor(max_workers=20)
-        for command in non_dependable_commands:
-            executor.submit(self._run_scan_commands, region, command, account_dir, summary)
-        executor.shutdown(True)
+        queue = Queue()
+        call_data = []
 
-        for command in dependable_commands:
-            self._run_scan_commands(region, command, account_dir, summary)
+        for non_dependable_command in non_dependable_commands:
+            call_data.append(ThreadedFunctionData(
+                self._run_scan_commands,
+                (region, non_dependable_command, account_dir, summary),
+                'exception on command {}'.format(non_dependable_command)))
+
+        queue.put_nowait(call_data)
+        for dependable_command in dependable_commands:
+            queue.put_nowait([ThreadedFunctionData(
+                self._run_scan_commands,
+                (region, dependable_command, account_dir, summary),
+                'exception on command {}'.format(dependable_command))])
+
+        execute_parallel_functions_in_threads(queue, 20)
 
     @staticmethod
     def _get_call_parameters(call_parameters: dict, parameters_def: list) -> List[dict]:
@@ -394,13 +435,23 @@ class AwsScanner(BaseCloudScanner):
         return params
 
     @staticmethod
-    def _fill_simple_params(param_groups, name, value):
+    def _fill_simple_params(param_groups, name, value, parameter: dict):
         if not param_groups:
             param_groups = [{name: value}]
             return param_groups
         else:
+            additional_param_group: List[dict] = []
             for param_group in param_groups:
-                param_group[name] = value
+                if "Values" in parameter:
+                    for val in value:
+                        param: dict = param_group.copy()
+                        param[name] = val
+                        additional_param_group.append(param)
+                else:
+                    param_group[name] = value
+            if additional_param_group:
+                param_groups.clear()
+                param_groups.extend(additional_param_group)
             return param_groups
 
     @staticmethod
@@ -442,7 +493,7 @@ class AwsScanner(BaseCloudScanner):
 
     def _should_run_command_on_region(self, runner: dict, region_dict: dict) -> bool:
         if runner["Service"] in self.universal_services:
-            if region_dict["RegionName"] != self.settings.default_region:
+            if region_dict["RegionName"] != self.default_region:
                 return False
         elif runner["Service"] != 'eks' and region_dict["RegionName"] not in self.session.get_available_regions(runner["Service"]):
             logger.info("Skipping region {}, as {} does not exist there"
@@ -454,11 +505,11 @@ class AwsScanner(BaseCloudScanner):
         param_groups = []
         for parameter in runner.get("Parameters", []):
             name = parameter["Name"]
-            value = parameter["Value"]
+            value = parameter.get("Value") or parameter.get("Values")
             is_dynamic = "|" in value
             parameter_keys.add(name)
             if not is_dynamic:
-                param_groups = self._fill_simple_params(param_groups, name, value)
+                param_groups = self._fill_simple_params(param_groups, name, value, parameter)
             else:
                 group = parameter.get("Group", False)
                 param_groups = self._fill_dynamic_params(param_groups, name, value, group, account_dir, region)

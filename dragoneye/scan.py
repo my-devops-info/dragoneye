@@ -2,17 +2,14 @@ import os
 
 import click
 from click_aliases import ClickAliasedGroup
+
 from dragoneye.cloud_scanner.aws.aws_scanner import AwsScanner
-
 from dragoneye.cloud_scanner.aws.aws_session_factory import AwsSessionFactory
-
 from dragoneye.cloud_scanner.azure.azure_scanner import AzureScanner
-
 from dragoneye.cloud_scanner.azure.azure_authorizer import AzureAuthorizer
-
-from dragoneye.cloud_scanner.aws.aws_scan_request import AwsCloudScanSettings
-from dragoneye.cloud_scanner.aws.aws_utils import AwsUtils
-from dragoneye.cloud_scanner.azure.azure_scan_request import AzureCloudScanSettings
+from dragoneye.cloud_scanner.aws.aws_scan_settings import AwsCloudScanSettings
+from dragoneye.cloud_scanner.azure.azure_scan_settings import AzureCloudScanSettings
+from dragoneye.utils.value_validator import validate_uuid, validate_path
 
 
 @click.group(name='scan',
@@ -65,9 +62,14 @@ def safe_cli_entry_point():
               help='The path in which the scan results will be saved on. Defaults to current working directory.',
               type=click.STRING,
               default=os.getcwd())
-def add_cloud_account_azure(cloud_account_name: str,
-                            subscription_id: str, client_id: str, client_secret: str, tenant_id: str,
-                            scan_commands_path, clean, output_path):
+def azure(cloud_account_name: str,
+          subscription_id: str, client_id: str, client_secret: str, tenant_id: str,
+          scan_commands_path, clean, output_path):
+    validate_uuid(subscription_id, 'Invalid subscription id')
+    validate_uuid(tenant_id, 'Invalid tenant id')
+    validate_uuid(client_id, 'Invalid client id')
+    validate_path(scan_commands_path)
+
     azure_scan_settings = AzureCloudScanSettings(
         commands_path=scan_commands_path,
         account_name=cloud_account_name,
@@ -76,7 +78,8 @@ def add_cloud_account_azure(cloud_account_name: str,
         output_path=output_path)
 
     auth_header = AzureAuthorizer.get_authorization_token(tenant_id, client_id, client_secret)
-    AzureScanner(auth_header, azure_scan_settings).scan()
+    output_path = AzureScanner(auth_header, azure_scan_settings).scan()
+    click.echo(f'Results saved to {output_path}')
 
 
 @scan_cli.command(name='aws',
@@ -105,22 +108,28 @@ def add_cloud_account_azure(cloud_account_name: str,
               help='The path in which the scan results will be saved on. Defaults to current working directory.',
               type=click.STRING,
               default=os.getcwd())
+@click.option('--default-region',
+              help='The default region for scanning universal services. Defaults to the value of the AWS_DEFAULT_REGION environment variable.',
+              type=click.STRING)
 def aws(cloud_account_name,
         profile,
         regions,
         scan_commands_path,
         clean,
-        output_path):
+        output_path,
+        default_region):
     aws_scan_settings = AwsCloudScanSettings(
         commands_path=scan_commands_path,
         account_name=cloud_account_name,
-        default_region=AwsUtils.get_default_region(),
         regions_filter=regions.split(','),
         should_clean_before_scan=clean,
-        output_path=output_path)
+        output_path=output_path,
+        default_region=default_region)
 
-    session = AwsSessionFactory.get_session(profile, AwsUtils.get_default_region())
-    AwsScanner(session, aws_scan_settings).scan()
+    validate_path(scan_commands_path)
+    session = AwsSessionFactory.get_session(profile, default_region)
+    output_path = AwsScanner(session, aws_scan_settings).scan()
+    click.echo(f'Results saved to {output_path}')
 
 
 if __name__ == '__main__':
