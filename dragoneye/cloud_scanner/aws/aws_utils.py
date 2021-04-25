@@ -15,11 +15,11 @@ class AwsUtils:
     @staticmethod
     def get_default_region_by_type(region_type: AwsRegionType):
         _region_type = region_type.lower()
-        if _region_type == AwsRegionType.Standard.value.lower():
+        if _region_type == AwsRegionType.STANDARD.value.lower():
             return 'us-east-1'
-        if _region_type == AwsRegionType.Gov.value.lower():
+        if _region_type == AwsRegionType.GOV.value.lower():
             return 'us-gov-west-1'
-        if _region_type == AwsRegionType.China.value.lower():
+        if _region_type == AwsRegionType.CHINA.value.lower():
             return 'cn-north-1'
 
         possible_values = ', '.join([region.value for region in AwsRegionType])

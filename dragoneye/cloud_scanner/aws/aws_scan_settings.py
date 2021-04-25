@@ -6,9 +6,9 @@ from dragoneye.cloud_scanner.base_cloud_scanner import CloudScanSettings, CloudP
 
 
 class AwsRegionType(str, Enum):
-    Standard = 'Standard'
-    Gov = 'Gov'
-    China = 'China'
+    STANDARD = 'Standard'
+    GOV = 'Gov'
+    CHINA = 'China'
 
 
 class AwsCloudScanSettings(CloudScanSettings):
