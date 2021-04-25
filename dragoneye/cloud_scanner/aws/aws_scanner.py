@@ -13,7 +13,6 @@ from botocore.exceptions import ClientError, EndpointConnectionError
 from botocore.config import Config
 
 from dragoneye.cloud_scanner.aws.aws_scan_settings import AwsCloudScanSettings
-from dragoneye.cloud_scanner.aws.aws_utils import AwsUtils
 from dragoneye.cloud_scanner.base_cloud_scanner import BaseCloudScanner
 from dragoneye.utils.app_logger import logger
 from dragoneye.utils.misc_utils import get_dynamic_values_from_files, custom_serializer, make_directory, init_directory, load_yaml, snakecase, \
@@ -39,7 +38,10 @@ class AwsScanner(BaseCloudScanner):
             "organizations",
         ]
         self.scan_commands = None
-        self.default_region = self.session.region_name or AwsUtils.get_default_region(settings.region_type)
+        self.default_region = settings.default_region or self.session.region_name
+        if self.default_region is None:
+            raise ValueError('Default region cannot be empty. '
+                             'You must specify the default region or set the AWS_DEFAULT_REGION environment variable')
         logging.getLogger("botocore").setLevel(logging.WARN)
 
     @elapsed_time('Scanning AWS live environment took {} seconds')
