@@ -62,7 +62,7 @@ class AwsScanner(BaseCloudScanner):
             ))
         queue.put_nowait(call_data)
 
-        execute_parallel_functions_in_threads(queue, 10)
+        execute_parallel_functions_in_threads(queue, len(region_dict_list))
 
         self._print_summary(summary)
 
@@ -387,7 +387,9 @@ class AwsScanner(BaseCloudScanner):
                  summary), 'exception on command {}'.format(runner), 'timeout on command {}'.format(runner)))
 
         queue.put_nowait(call_data)
-        execute_parallel_functions_in_threads(queue, 20, self.settings.command_timeout)
+
+        max_workers = 10 if runner['Service'] == 'lambda' else 20
+        execute_parallel_functions_in_threads(queue, max_workers, self.settings.command_timeout)
 
     def _scan_region_data(self, region, account_dir, summary):
         dependable_commands = [command for command in self.scan_commands if command.get("Parameters", False)]
