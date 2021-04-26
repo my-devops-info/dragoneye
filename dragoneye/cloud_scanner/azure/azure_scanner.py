@@ -82,7 +82,7 @@ class AzureScanner(BaseCloudScanner):
             json.dump(result, file, indent=4, default=custom_serializer)
 
     @staticmethod
-    def _build_urls(url: str, parameters: List[dict], account_data_dir: str, resource_groups: List[str]):
+    def _build_urls(_url: str, parameters: List[dict], account_data_dir: str, resource_groups: List[str]):
         urls_with_params = []
         if parameters:
             for parameter in parameters:
@@ -91,25 +91,25 @@ class AzureScanner(BaseCloudScanner):
                 param_real_values = get_dynamic_values_from_files(param_dynamic_value, account_data_dir)
 
                 for param_real_value in param_real_values:
-                    modified_url = url
+                    modified_url = _url
                     zipped = zip(param_names.split(' '), param_real_value.split(' '))
                     for param, value in zipped:
                         modified_url = modified_url.replace('{{{0}}}'.format(param), value)
 
                     urls_with_params.append(modified_url)
-                else:
-                    logger.warning(f'Could not fill parameter values for {url}')
+                if not param_real_values:
+                    logger.warning(f'Could not fill parameter values for {_url}')
         else:
-            urls_with_params.append(url)
+            urls_with_params.append(_url)
 
         complete_urls = []
 
-        for url in urls_with_params:
-            if '/{resourceGroupName}/' in url:
+        for _url in urls_with_params:
+            if '/{resourceGroupName}/' in _url:
                 for resource_group in resource_groups:
-                    complete_urls.append(url.replace('{{{0}}}'.format('resourceGroupName'), resource_group))
+                    complete_urls.append(_url.replace('{{{0}}}'.format('resourceGroupName'), resource_group))
             else:
-                complete_urls.append(url)
+                complete_urls.append(_url)
 
         return complete_urls
 
