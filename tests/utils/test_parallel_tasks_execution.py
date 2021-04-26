@@ -11,12 +11,12 @@ class TestParallelTasksExecution(TestCase):
 
     def test_parallel_execution(self):
         deque_tasks: Deque[List[ThreadedFunctionData]] = collections.deque()
-        in_depended_tasks: List[ThreadedFunctionData] = []
+        independed_tasks: List[ThreadedFunctionData] = []
         dependable_tasks: List[ThreadedFunctionData] = []
         tasks_size: int = 100
 
         for index in range(tasks_size):
-            in_depended_tasks.append(ThreadedFunctionData(self.do_wait_and_get,
+            independed_tasks.append(ThreadedFunctionData(self.do_wait_and_get,
                                                           (f'in-dependent task id={index}\n', random.uniform(0.5, 1)),
                                                           'error msg', 'timeout msg'))
 
@@ -25,7 +25,7 @@ class TestParallelTasksExecution(TestCase):
                                                          (f'dependent task id={index}\n', random.uniform(0.1, 0.5)),
                                                          'error msg', 'timeout msg'))
 
-        deque_tasks.append(in_depended_tasks)
+        deque_tasks.append(independed_tasks)
         deque_tasks.append(dependable_tasks)
         tasks_responses: List[Tuple[Future, str, str]] = execute_parallel_functions_in_threads(deque_tasks, 10, 10)
         for index in range(tasks_size):

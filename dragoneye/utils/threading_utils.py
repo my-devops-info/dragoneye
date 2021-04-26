@@ -17,7 +17,7 @@ class ThreadedFunctionData:
 def execute_parallel_functions_in_threads(tasks_groups: Deque[List[ThreadedFunctionData]], max_workers, timeout=None)\
         -> List[Tuple[Future, str, str]]:
     """
-    This function takes a Queue (queue: Deque[List[ThreadedFunctionData]])
+    This function takes a Queue (tasks_groups: Deque[List[ThreadedFunctionData]])
     of lists, when each queued item represents a list of functions that should be run in parallel.
     """
     tasks_responses: List[Tuple[Future, str, str]] = []
