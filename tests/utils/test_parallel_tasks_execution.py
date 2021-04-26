@@ -17,8 +17,8 @@ class TestParallelTasksExecution(TestCase):
 
         for index in range(tasks_size):
             independed_tasks.append(ThreadedFunctionData(self.do_wait_and_get,
-                                                          (f'in-dependent task id={index}\n', random.uniform(0.5, 1)),
-                                                          'error msg', 'timeout msg'))
+                                                         (f'in-dependent task id={index}\n', random.uniform(0.5, 1)),
+                                                         'error msg', 'timeout msg'))
 
         for index in range(tasks_size, tasks_size * 2):
             dependable_tasks.append(ThreadedFunctionData(self.do_wait_and_get,
