@@ -179,7 +179,6 @@ class AwsScanner(BaseCloudScanner):
         AwsScanner._save_results_to_file(output_file, data)
 
         logger.info(f'Results from {function_msg} were saved to {output_file}')
-        all_call_summaries.append(call_summary)
         summary.put_nowait(call_summary)
 
     @staticmethod
