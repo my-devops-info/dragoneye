@@ -63,7 +63,7 @@ class AwsScanner(BaseCloudScanner):
 
         deque_tasks: Deque[List[ThreadedFunctionData]] = collections.deque()
         deque_tasks.append(tasks)
-        execute_parallel_functions_in_threads(deque_tasks, 10)
+        execute_parallel_functions_in_threads(deque_tasks, len(region_dict_list))
 
         self._print_summary(summary)
 
@@ -360,7 +360,8 @@ class AwsScanner(BaseCloudScanner):
             for param_group in param_groups:
                 if set(param_group.keys()) != parameter_keys:
                     continue
-                file_name = urllib.parse.quote_plus('_'.join([f'{k}-{v}' for k, v in param_group.items()]))
+                unparsed_file_name = '_'.join([f'{k}-{v}' if not isinstance(v, list) else k for k, v in param_group.items()])
+                file_name = urllib.parse.quote_plus(unparsed_file_name)
                 output_file = f"{filepath}/{file_name}.json"
                 tasks.append(ThreadedFunctionData(
                     AwsScanner._get_and_save_data,
@@ -387,7 +388,8 @@ class AwsScanner(BaseCloudScanner):
 
         deque_tasks: Deque[List[ThreadedFunctionData]] = collections.deque()
         deque_tasks.append(tasks)
-        execute_parallel_functions_in_threads(deque_tasks, 20, self.settings.command_timeout)
+        max_workers = 10 if runner['Service'] == 'lambda' else 20
+        execute_parallel_functions_in_threads(deque_tasks, max_workers, self.settings.command_timeout)
 
     def _scan_region_data(self, region, account_dir, summary: Queue):
         dependable_commands = []
