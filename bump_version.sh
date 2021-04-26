@@ -12,9 +12,9 @@ new_tag=$(echo $latest_tag | awk -F. -v a="$1" -v b="$2" -v c="$3" '{printf("%d.
 echo "new tag: $new_tag"
 
 # Update __version__ in python
-echo "version = '$new_tag'" > $version_file
+echo "__version__ = '$new_tag'" > $version_file
 
-git commit -m="test" $version_file || echo "No changes to commit"
+git commit --reuse-message=HEAD@{1} $version_file || echo "No changes to commit"
 git push origin
 # Commenting the rest of this out because we use the release drafter to actually push new tags
 #git tag $new_tag
