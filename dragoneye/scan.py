@@ -13,7 +13,7 @@ from dragoneye.utils.value_validator import validate_uuid, validate_path
 
 
 @click.group(name='scan',
-             help='Execute data-fetching API commands on a cloud account at a large scale quickly.. Currently supported: AWS, Azure',
+             help='Execute data-fetching API commands on a cloud account at a large scale quickly. Currently supported: AWS, Azure',
              cls=ClickAliasedGroup)
 def scan_cli():
     pass
