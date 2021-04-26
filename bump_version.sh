@@ -13,6 +13,7 @@ echo "new tag: $new_tag"
 
 # Update __version__ in python
 echo "version = '$new_tag'" > $version_file
+echo "version = '$new_tag'" > mytest.txt
 
 git commit --reuse-message=HEAD@{1} $version_file || echo "No changes to commit"
 git push origin
