@@ -1,6 +1,6 @@
+import collections
 import os
-from queue import Queue
-from typing import List
+from typing import List, Deque
 
 import json
 
@@ -34,26 +34,34 @@ class AzureScanner(BaseCloudScanner):
         scan_commands = load_yaml(settings.commands_path)
         resource_groups = self._get_resource_groups(headers, subscription_id, account_data_dir)
 
-        dependable_commands = [command for command in scan_commands if command.get("Parameters", False)]
-        non_dependable_commands = [command for command in scan_commands if not command.get("Parameters", False)]
+        dependable_commands = []
+        non_dependable_commands = []
+        for command in scan_commands:
+            if "Parameters" in command:
+                dependable_commands.append(command)
+            else:
+                non_dependable_commands.append(command)
 
-        queue = Queue()
-        call_data = []
+        non_dependable_tasks: List[ThreadedFunctionData] = []
+        dependable_tasks: List[ThreadedFunctionData] = []
+        deque_tasks: Deque[List[ThreadedFunctionData]] = collections.deque()
 
         for non_dependable_command in non_dependable_commands:
-            call_data.append(ThreadedFunctionData(
+            non_dependable_tasks.append(ThreadedFunctionData(
                 self._execute_scan_commands,
                 (non_dependable_command, subscription_id, headers, account_data_dir, resource_groups),
                 'exception on command {}'.format(non_dependable_command)))
 
-        queue.put_nowait(call_data)
+        deque_tasks.append(non_dependable_tasks)
+
         for dependable_command in dependable_commands:
-            queue.put_nowait([ThreadedFunctionData(
+            dependable_tasks.append(ThreadedFunctionData(
                 self._execute_scan_commands,
                 (dependable_command, subscription_id, headers, account_data_dir, resource_groups),
-                'exception on command {}'.format(dependable_command))])
+                'exception on command {}'.format(dependable_command)))
 
-        execute_parallel_functions_in_threads(queue, 20)
+        deque_tasks.append(dependable_tasks)
+        execute_parallel_functions_in_threads(deque_tasks, 20)
 
         return os.path.abspath(os.path.join(account_data_dir, '..'))
 

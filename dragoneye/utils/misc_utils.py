@@ -2,6 +2,7 @@ import glob
 import json
 import os
 from datetime import datetime
+from functools import lru_cache
 from shutil import rmtree
 from typing import List
 
@@ -74,7 +75,8 @@ def invoke_get_request(url: str, headers: dict, on_success=None, on_backoff=None
     return func(url, headers)
 
 
-def get_dynamic_values_from_files(value: str, directory: str):
+@lru_cache(maxsize=None)
+def get_dynamic_values_from_files(value: str, directory: str) -> list:
     parameter_file = value.split("|")[0]
     parameter_file = "{}/{}".format(
         directory, parameter_file

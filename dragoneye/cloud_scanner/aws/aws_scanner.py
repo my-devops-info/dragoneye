@@ -1,3 +1,4 @@
+import collections
 import copy
 import logging
 import os.path
@@ -6,7 +7,7 @@ import re
 import json
 import time
 from queue import Queue
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Deque
 
 import urllib.parse
 from botocore.exceptions import ClientError, EndpointConnectionError
@@ -50,19 +51,19 @@ class AwsScanner(BaseCloudScanner):
         account_data_dir = init_directory(self.settings.output_path, self.settings.account_name, self.settings.clean)
         region_dict_list = self._create_regions_file_structure(account_data_dir)
 
-        summary = []
-        queue = Queue()
-        call_data = []
+        summary: Queue = Queue()
+        tasks: List[ThreadedFunctionData] = []
 
         for region in region_dict_list:
-            call_data.append(ThreadedFunctionData(
+            tasks.append(ThreadedFunctionData(
                 self._scan_region_data,
                 (region, account_data_dir, summary),
                 'An unknown exception has occurred'
             ))
-        queue.put_nowait(call_data)
 
-        execute_parallel_functions_in_threads(queue, len(region_dict_list))
+        deque_tasks: Deque[List[ThreadedFunctionData]] = collections.deque()
+        deque_tasks.append(tasks)
+        execute_parallel_functions_in_threads(deque_tasks, len(region_dict_list))
 
         self._print_summary(summary)
 
@@ -101,14 +102,14 @@ class AwsScanner(BaseCloudScanner):
         return region_list
 
     @staticmethod
-    def _print_summary(summary):
+    def _print_summary(summary: Queue):
         logger.info("--------------------------------------------------------------------")
         failures = []
-        for call_summary in summary:
+        for call_summary in summary.queue:
             if "exception" in call_summary:
                 failures.append(call_summary)
 
-        logger.info("Summary: {} APIs called. {} errors".format(len(summary), len(failures)))
+        logger.info("Summary: {} APIs called. {} errors".format(len(summary.queue), len(failures)))
         if len(failures) > 0:
             logger.warning("Failures:")
             for call_summary in failures:
@@ -149,7 +150,7 @@ class AwsScanner(BaseCloudScanner):
         return urllib.parse.quote_plus(filename)
 
     @staticmethod
-    def _get_and_save_data(output_file, handler, method_to_call, parameters, checks, region, all_call_summaries):
+    def _get_and_save_data(output_file, handler, method_to_call, parameters, checks, region, summary: Queue):
         """
         Calls the AWS API function and downloads the data
 
@@ -179,6 +180,7 @@ class AwsScanner(BaseCloudScanner):
 
         logger.info(f'Results from {function_msg} were saved to {output_file}')
         all_call_summaries.append(call_summary)
+        summary.put_nowait(call_summary)
 
     @staticmethod
     def _get_data(output_file, handler, method_to_call, parameters, checks, call_summary):
@@ -332,7 +334,7 @@ class AwsScanner(BaseCloudScanner):
                     json.dumps(data, indent=4, sort_keys=True, default=custom_serializer)
                 )
 
-    def _run_scan_commands(self, region, runner, account_dir, summary):
+    def _run_scan_commands(self, region, runner, account_dir, summary: Queue):
         region = copy.deepcopy(region)
         runner = copy.deepcopy(runner)
         region_name = region["RegionName"]
@@ -351,8 +353,7 @@ class AwsScanner(BaseCloudScanner):
         parameter_keys = set()
         param_groups = self._get_parameter_group(runner, account_dir, region, parameter_keys)
 
-        queue = Queue()
-        call_data = []
+        tasks: List[ThreadedFunctionData] = []
 
         if runner.get("Parameters"):
             make_directory(filepath)
@@ -362,7 +363,7 @@ class AwsScanner(BaseCloudScanner):
                 unparsed_file_name = '_'.join([f'{k}-{v}' if not isinstance(v, list) else k for k, v in param_group.items()])
                 file_name = urllib.parse.quote_plus(unparsed_file_name)
                 output_file = f"{filepath}/{file_name}.json"
-                call_data.append(ThreadedFunctionData(
+                tasks.append(ThreadedFunctionData(
                     AwsScanner._get_and_save_data,
                     (output_file,
                      handler,
@@ -375,7 +376,7 @@ class AwsScanner(BaseCloudScanner):
                     'timeout on command {}'.format(runner)))
         else:
             output_file = filepath + ".json"
-            call_data.append(ThreadedFunctionData(
+            tasks.append(ThreadedFunctionData(
                 AwsScanner._get_and_save_data,
                 (output_file,
                  handler,
@@ -385,32 +386,40 @@ class AwsScanner(BaseCloudScanner):
                  region_name,
                  summary), 'exception on command {}'.format(runner), 'timeout on command {}'.format(runner)))
 
-        queue.put_nowait(call_data)
-
+        deque_tasks: Deque[List[ThreadedFunctionData]] = collections.deque()
+        deque_tasks.append(tasks)
         max_workers = 10 if runner['Service'] == 'lambda' else 20
-        execute_parallel_functions_in_threads(queue, max_workers, self.settings.command_timeout)
+        execute_parallel_functions_in_threads(deque_tasks, max_workers, self.settings.command_timeout)
 
-    def _scan_region_data(self, region, account_dir, summary):
-        dependable_commands = [command for command in self.scan_commands if command.get("Parameters", False)]
-        non_dependable_commands = [command for command in self.scan_commands if not command.get("Parameters", False)]
+    def _scan_region_data(self, region, account_dir, summary: Queue):
+        dependable_commands = []
+        non_dependable_commands = []
+        for command in self.scan_commands:
+            if "Parameters" in command:
+                dependable_commands.append(command)
+            else:
+                non_dependable_commands.append(command)
 
-        queue = Queue()
-        call_data = []
+        non_dependable_tasks: List[ThreadedFunctionData] = []
+        dependable_tasks: List[ThreadedFunctionData] = []
+        deque_tasks: Deque[List[ThreadedFunctionData]] = collections.deque()
 
         for non_dependable_command in non_dependable_commands:
-            call_data.append(ThreadedFunctionData(
+            non_dependable_tasks.append(ThreadedFunctionData(
                 self._run_scan_commands,
                 (region, non_dependable_command, account_dir, summary),
                 'exception on command {}'.format(non_dependable_command)))
 
-        queue.put_nowait(call_data)
+        deque_tasks.append(non_dependable_tasks)
+
         for dependable_command in dependable_commands:
-            queue.put_nowait([ThreadedFunctionData(
+            dependable_tasks.append(ThreadedFunctionData(
                 self._run_scan_commands,
                 (region, dependable_command, account_dir, summary),
-                'exception on command {}'.format(dependable_command))])
+                'exception on command {}'.format(dependable_command)))
 
-        execute_parallel_functions_in_threads(queue, 20)
+        deque_tasks.append(dependable_tasks)
+        execute_parallel_functions_in_threads(deque_tasks, 20)
 
     @staticmethod
     def _get_call_parameters(call_parameters: dict, parameters_def: list) -> List[dict]:
@@ -476,18 +485,18 @@ class AwsScanner(BaseCloudScanner):
                 for val in values:
                     param_groups.append({name: val})
                 return param_groups
-        cached_values = {}
+
         result_param_groups = []
         for param_group in param_groups:
             real_value = value
             for key in depends_on_keys:
                 real_value = real_value.replace(f'{{{{{key}}}}}', param_group[key])
-            cached_values[real_value] = cached_values.get(real_value, get_dynamic_values_from_files(real_value, region_account_dir))
+            dynamic_params_list: list = get_dynamic_values_from_files(real_value, region_account_dir)
             if group:
-                param_group[name] = cached_values[real_value]
+                param_group[name] = dynamic_params_list
                 result_param_groups.append(param_group)
             else:
-                for cached_value in cached_values[real_value]:
+                for cached_value in dynamic_params_list:
                     clone_param_group = copy.deepcopy(param_group)
                     clone_param_group[name] = cached_value
                     result_param_groups.append(clone_param_group)
