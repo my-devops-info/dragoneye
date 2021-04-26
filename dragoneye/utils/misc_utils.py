@@ -50,25 +50,28 @@ def load_yaml(file_path: str) -> List[dict]:
         return yaml.safe_load(file)
 
 
-def _on_backoff_success(details: dict) -> None:
+def _default_on_backoff_success(details: dict) -> None:
     logger.info('Invoked request took {elapsed:0.6f} seconds for call {args[0]}'.format(**details))
 
 
-def _on_backoff_predicate(details: dict) -> None:
+def _default_on_backoff_predicate(details: dict) -> None:
     logger.info('Attempt #{tries} failed. Invoked request took {elapsed:0.6f} seconds for call {args[0]}'.format(**details))
 
 
-def _on_backoff_giveup(details: dict) -> None:
-    logger.info('Given up on request for {args[0]}'.format(**details))
+def _default_on_backoff_giveup(details: dict) -> None:
+    logger.error('Given up on request for {args[0]}'.format(**details))
 
 
 @backoff.on_exception(backoff.expo, requests.RequestException, 10, 600)
-@backoff.on_predicate(backoff.expo, lambda response: response.status_code != 200, 3, 600,
-                      on_success=_on_backoff_success,
-                      on_backoff=_on_backoff_predicate,
-                      on_giveup=_on_backoff_giveup)
-def invoke_get_request(url: str, headers: dict):
-    return requests.get(url=url, headers=headers)
+def invoke_get_request(url: str, headers: dict, on_success=None, on_backoff=None, on_giveup=None):
+    on_predicate = backoff.on_predicate(backoff.expo, lambda response: response.status_code != 200,
+                                        max_tries=3,
+                                        max_time=600,
+                                        on_success=on_success,
+                                        on_backoff=on_backoff or _default_on_backoff_predicate,
+                                        on_giveup=on_giveup or _default_on_backoff_giveup)
+    func = on_predicate(lambda _url, _headers: requests.get(url=_url, headers=_headers))
+    return func(url, headers)
 
 
 def get_dynamic_values_from_files(value: str, directory: str):
