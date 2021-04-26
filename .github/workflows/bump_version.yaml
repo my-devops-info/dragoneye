@@ -9,7 +9,6 @@ jobs:
     steps:
     - uses: actions/checkout@master
     - name: Bump version and push tag
-      id: update_version
       uses: anothrNick/github-tag-action@master
       env:
         GITHUB_TOKEN: ${{ secrets.ALON_PAT_DRAGONEYE }}
