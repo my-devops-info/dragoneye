@@ -2,7 +2,7 @@ name: Bump version
 on:
   push:
     branches:
-      - Issue-58-Bump-version-in-version.py
+      - main
 jobs:
   bump-version:
     runs-on: ubuntu-latest
