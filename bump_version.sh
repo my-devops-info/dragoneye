@@ -12,7 +12,7 @@ new_tag=$(echo $latest_tag | awk -F. -v a="$1" -v b="$2" -v c="$3" '{printf("%d.
 echo "new tag: $new_tag"
 
 # Update __version__ in python
-echo "__version__ = '$new_tag'" > $version_file
+echo "version = '$new_tag'" > $version_file
 
 git commit --reuse-message=HEAD@{1} $version_file || echo "No changes to commit"
 git push origin
