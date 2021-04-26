@@ -2,15 +2,18 @@ name: Bump version
 on:
   push:
     branches:
-      - main
+      - tomer-tmp-branch
 jobs:
   bump-version:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@master
     - name: Bump version and push tag
+      id: update_version
       uses: anothrNick/github-tag-action@master
       env:
         GITHUB_TOKEN: ${{ secrets.ALON_PAT_DRAGONEYE }}
         WITH_V: true
         DEFAULT_BUMP: patch
+    - name: Update version.py
+      run: sh ${GITHUB_WORKSPACE}/bump_version.sh ${{ steps.update_version.outputs.new_tag }}
