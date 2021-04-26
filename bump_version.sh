@@ -14,7 +14,7 @@ echo "new tag: $new_tag"
 # Update __version__ in python
 echo "__version__ = '$new_tag'" > $version_file
 
-git commit --reuse-message=HEAD@{1} $version_file || echo "No changes to commit"
+git commit --reuse-message=HEAD $version_file || echo "No changes to commit"
 git push origin
 # Commenting the rest of this out because we use the release drafter to actually push new tags
 #git tag $new_tag
