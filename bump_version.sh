@@ -16,7 +16,7 @@ echo "__version__ = '$new_tag'" > $version_file
 
 git commit --reuse-message=HEAD $version_file || echo "No changes to commit"
 git push origin
-# Commenting the rest of this out because we use the release drafter to actually push new tags
+# Commenting the rest of this out because we use the release drafter to actually push new tagsz
 #git tag $new_tag
 #git push origin $new_tag
 #RELEASE_NOTE=$(git log -1 --pretty=%B)
