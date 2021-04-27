@@ -8,14 +8,17 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: checkout
+        if: "$ {{ github.event.commits[0].author.email != action@github.com }}"
         uses: actions/checkout@v2
         with:
           token: ${{ secrets.ALON_PAT_DRAGONEYE }}
       - name: Bump version and push tag
+        if: "$ {{ github.event.commits[0].author.email != action@github.com }}"
         uses: anothrNick/github-tag-action@master
         env:
           GITHUB_TOKEN: ${{ secrets.ALON_PAT_DRAGONEYE }}
           WITH_V: true
           DEFAULT_BUMP: patch
       - name: Update version.py
+        if: "$ {{ github.event.commits[0].author.email != action@github.com }}"
         run: sh ${GITHUB_WORKSPACE}/bump_version.sh
