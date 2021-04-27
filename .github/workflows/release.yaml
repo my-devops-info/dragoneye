@@ -5,7 +5,6 @@ on: [workflow_dispatch]
 jobs:
   bump-version:
     runs-on: ubuntu-latest
-
     steps:
     - name: checkout
       uses: actions/checkout@v2
@@ -19,13 +18,15 @@ jobs:
         WITH_V: true
         DEFAULT_BUMP: patch
         DRY_RUN: true
+    - name: Save version into env var
+      run: echo "RELEASE_VERSION=${{steps.get_new_tag.outputs.new_tag}}" >> $GITHUB_ENV
     - name: Update version.py
       run: |
         version_file="dragoneye/version.py"
         git config --local user.email "action@github.com"
         git config --local user.name "GitHub Action"
-        echo "latest tag: ${{steps.get_new_tag.outputs.new_tag}}"
-        echo "__version__ = '${{steps.get_new_tag.outputs.new_tag}}'" > $version_file
+        echo "latest tag: ${{ env.RELEASE_VERSION }}"
+        echo "__version__ = '${{ env.RELEASE_VERSION }}'" > $version_file
         git commit --reuse-message=HEAD $version_file || echo "No changes to commit"
         git push origin
     - name: Bump version and push tag
@@ -39,11 +40,11 @@ jobs:
     needs: [bump-version]
     runs-on: ubuntu-latest
     steps:
-    - name: update docs and bump version
+    - name: Create github release
       env:
         GITHUB_TOKEN: ${{ secrets.ALON_PAT_DRAGONEYE }}
       run: |
-        gh release create ${{steps.get_new_tag.outputs.new_tag}}  -t ${{steps.get_new_tag.outputs.new_tag}} --repo indeni/dragoneye
+        gh release create ${{ env.RELEASE_VERSION }}  -t ${{ env.RELEASE_VERSION }} --repo indeni/dragoneye
 
   release-packadge-to-pipy:
     needs: [create-new-release]
@@ -64,5 +65,5 @@ jobs:
         if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
     - name: Upload pip package to PyPi
       run: |
-        python setup.py sdist bdist_wheel --version ${{steps.get_new_tag.outputs.new_tag}}
+        python setup.py sdist bdist_wheel --version ${{ env.RELEASE_VERSION }}
         twine upload dist/*  -u __token__ -p ${{ secrets.PYPI_API_TOKEN }}
