@@ -1,21 +1,38 @@
 name: Create a new release
 
-on:
-  workflow_dispatch:
-    inputs:
-      tagVersion:
-        description: 'Tag version'
-        required: true
+on: [workflow_dispatch]
 
 jobs:
+  bump-version:
+    runs-on: ubuntu-latest
+    steps:
+    - name: checkout
+      uses: actions/checkout@v2
+      with:
+        token: ${{ secrets.ALON_PAT_DRAGONEYE }}
+        - name: Bump version and push tag
+          uses: anothrNick/github-tag-action@master
+          env:
+            GITHUB_TOKEN: ${{ secrets.ALON_PAT_DRAGONEYE }}
+            WITH_V: true
+            DEFAULT_BUMP: patch
+        - name: Update version.py
+          run: sh ${GITHUB_WORKSPACE}/bump_version.sh
+        - name: Get latest tag
+          run: |
+            echo "latest_tag=$(git describe --tags `git rev-list --tags --max-count=1`)" >> $GITHUB_ENV
+            echo ${{ env.latest_tag }}
+
   create-new-release:
+    needs: [bump-version]
     runs-on: ubuntu-latest
     steps:
     - name: update docs and bump version
       env:
         GITHUB_TOKEN: ${{ secrets.ALON_PAT_DRAGONEYE }}
       run: |
-        gh release create ${{ github.event.inputs.tagVersion }}  -t ${{ github.event.inputs.tagVersion }} --repo indeni/dragoneye
+        gh release create ${{ env.latest_tag }}  -t ${{ env.latest_tag }} --repo indeni/dragoneye
+
   release-packadge-to-pipy:
     needs: [create-new-release]
     runs-on: ubuntu-latest
@@ -24,9 +41,6 @@ jobs:
         python-version: [3.9]
 
     steps:
-    - uses: actions/checkout@v2
-      with:
-        ref: ${{ github.event.inputs.tagVersion }}
     - name: Set up Python ${{ matrix.python-version }}
       uses: actions/setup-python@v2
       with:
@@ -38,5 +52,5 @@ jobs:
         if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
     - name: Upload pip package to PyPi
       run: |
-        python setup.py sdist bdist_wheel --version ${{ github.event.inputs.tagVersion }}
+        python setup.py sdist bdist_wheel --version ${{ env.latest_tag }}
         twine upload dist/*  -u __token__ -p ${{ secrets.PYPI_API_TOKEN }}
