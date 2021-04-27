@@ -18,4 +18,4 @@ jobs:
           WITH_V: true
           DEFAULT_BUMP: patch
       - name: Update version.py
-        run: sh ./bump_version.sh
+        run: sh ${GITHUB_WORKSPACE}/bump_version.sh
