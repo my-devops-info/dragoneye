@@ -3,6 +3,7 @@ import os
 import click
 from click_aliases import ClickAliasedGroup
 
+from dragoneye.version import __version__
 from dragoneye.cloud_scanner.aws.aws_scanner import AwsScanner
 from dragoneye.cloud_scanner.aws.aws_session_factory import AwsSessionFactory
 from dragoneye.cloud_scanner.azure.azure_scanner import AzureScanner
@@ -16,6 +17,7 @@ from dragoneye.utils.value_validator import validate_uuid, validate_path
              short_help='Scan cloud account.',
              help='Scan cloud account. Currently supported: AWS, Azure',
              cls=ClickAliasedGroup)
+@click.version_option(__version__)
 def scan_cli():
     pass
 
