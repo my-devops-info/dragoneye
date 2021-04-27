@@ -46,7 +46,7 @@ jobs:
       run: |
         gh release create ${{ env.RELEASE_VERSION }}  -t ${{ env.RELEASE_VERSION }} --repo indeni/dragoneye
 
-    # release-package-to-PIPY:
+    # release-package-to-PyPi:
     - name: Set up Python ${{ matrix.python-version }}
       uses: actions/setup-python@v2
       with:
