@@ -163,15 +163,3 @@ class AzureScanner(BaseCloudScanner):
     @staticmethod
     def _get_result_file_path(account_data_dir: str, filename: str):
         return os.path.join(account_data_dir, filename + '.json')
-
-    @staticmethod
-    def _on_backoff_success(details: dict) -> None:
-        logger.info('Invoked request took {elapsed:0.6f} seconds for call {args[0]}'.format(**details))
-
-    @staticmethod
-    def _on_backoff_predicate(details: dict) -> None:
-        logger.info('Attempt #{tries} failed. Invoked request took {elapsed:0.6f} seconds for call {args[0]}'.format(**details))
-
-    @staticmethod
-    def _on_backoff_giveup(details: dict) -> None:
-        logger.error('Given up on request for {args[0]}'.format(**details))

@@ -51,10 +51,6 @@ def load_yaml(file_path: str) -> List[dict]:
         return yaml.safe_load(file)
 
 
-def _default_on_backoff_success(details: dict) -> None:
-    logger.info('Invoked request took {elapsed:0.6f} seconds for call {args[0]}'.format(**details))
-
-
 def _default_on_backoff_predicate(details: dict) -> None:
     logger.info('Attempt #{tries} failed. Invoked request took {elapsed:0.6f} seconds for call {args[0]}'.format(**details))
 
