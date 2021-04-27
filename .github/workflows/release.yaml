@@ -29,11 +29,11 @@ jobs:
         git commit --reuse-message=HEAD $version_file || echo "No changes to commit"
         git push origin
     - name: Bump version and push tag
-        uses: anothrNick/github-tag-action@master
-        env:
-          GITHUB_TOKEN: ${{ secrets.ALON_PAT_DRAGONEYE }}
-          WITH_V: true
-          DEFAULT_BUMP: patch
+      uses: anothrNick/github-tag-action@master
+      env:
+        GITHUB_TOKEN: ${{ secrets.ALON_PAT_DRAGONEYE }}
+        WITH_V: true
+        DEFAULT_BUMP: patch
 
   create-new-release:
     needs: [bump-version]
