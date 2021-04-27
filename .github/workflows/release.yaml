@@ -5,23 +5,35 @@ on: [workflow_dispatch]
 jobs:
   bump-version:
     runs-on: ubuntu-latest
+
     steps:
     - name: checkout
       uses: actions/checkout@v2
       with:
         token: ${{ secrets.ALON_PAT_DRAGONEYE }}
-    - name: Bump version and push tag
+    - name: get new version
       uses: anothrNick/github-tag-action@master
+      id: get_new_tag
       env:
         GITHUB_TOKEN: ${{ secrets.ALON_PAT_DRAGONEYE }}
         WITH_V: true
         DEFAULT_BUMP: patch
+        DRY_RUN: true
     - name: Update version.py
-      run: sh ${GITHUB_WORKSPACE}/bump_version.sh
-    - name: Get latest tag
       run: |
-        echo "latest_tag=$(git describe --tags `git rev-list --tags --max-count=1`)" >> $GITHUB_ENV
-        echo ${{ env.latest_tag }}
+        version_file="dragoneye/version.py"
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
+        echo "latest tag: ${{steps.get_new_tag.outputs.new_tag}}"
+        echo "__version__ = '${{steps.get_new_tag.outputs.new_tag}}'" > $version_file
+        git commit --reuse-message=HEAD $version_file || echo "No changes to commit"
+        git push origin
+    - name: Bump version and push tag
+        uses: anothrNick/github-tag-action@master
+        env:
+          GITHUB_TOKEN: ${{ secrets.ALON_PAT_DRAGONEYE }}
+          WITH_V: true
+          DEFAULT_BUMP: patch
 
   create-new-release:
     needs: [bump-version]
@@ -31,7 +43,7 @@ jobs:
       env:
         GITHUB_TOKEN: ${{ secrets.ALON_PAT_DRAGONEYE }}
       run: |
-        gh release create ${{ env.latest_tag }}  -t ${{ env.latest_tag }} --repo indeni/dragoneye
+        gh release create ${{steps.get_new_tag.outputs.new_tag}}  -t ${{steps.get_new_tag.outputs.new_tag}} --repo indeni/dragoneye
 
   release-packadge-to-pipy:
     needs: [create-new-release]
@@ -52,5 +64,5 @@ jobs:
         if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
     - name: Upload pip package to PyPi
       run: |
-        python setup.py sdist bdist_wheel --version ${{ env.latest_tag }}
+        python setup.py sdist bdist_wheel --version ${{steps.get_new_tag.outputs.new_tag}}
         twine upload dist/*  -u __token__ -p ${{ secrets.PYPI_API_TOKEN }}
