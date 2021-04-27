@@ -3,7 +3,10 @@ name: Create a new release
 on: [workflow_dispatch]
 
 jobs:
-  bump-version:
+  release-new-version:
+    strategy:
+      matrix:
+        python-version: [ 3.9 ]
     runs-on: ubuntu-latest
     steps:
     - name: checkout
@@ -36,24 +39,14 @@ jobs:
         WITH_V: true
         DEFAULT_BUMP: patch
 
-  create-new-release:
-    needs: [bump-version]
-    runs-on: ubuntu-latest
-    steps:
+    # create-new-release:
     - name: Create github release
       env:
         GITHUB_TOKEN: ${{ secrets.ALON_PAT_DRAGONEYE }}
       run: |
         gh release create ${{ env.RELEASE_VERSION }}  -t ${{ env.RELEASE_VERSION }} --repo indeni/dragoneye
 
-  release-packadge-to-pipy:
-    needs: [create-new-release]
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        python-version: [3.9]
-
-    steps:
+    # release-package-to-PIPY:
     - name: Set up Python ${{ matrix.python-version }}
       uses: actions/setup-python@v2
       with:
